@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>4D Embedding Space Visualizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="appShell">
+    <canvas id="scene"></canvas>
+
+    <aside class="panel hero-panel">
+      <p class="eyebrow">Three.js + Mock Hidden States</p>
+      <h1>4D Embedding Space Visualizer</h1>
+      <p class="lede">
+        Varsayilan gorunum true latent modunda secili katmani PCA duzleminde aciyor. Atlas
+        gorunumu istersen geri donebilir, katmanlar arasi izleri ve yakinlik cizgilerini
+        ayni sahnede inceleyebilirsin.
+      </p>
+      <div class="chip-row">
+        <span id="tokenCountChip" class="chip">0 token</span>
+        <span id="layerRangeChip" class="chip">Katman 0-27</span>
+        <span id="datasetChip" class="chip">Veri yukleniyor</span>
+      </div>
+    </aside>
+
+    <section class="panel controls-panel">
+      <div class="control-block">
+        <div class="label-row">
+          <span>Gorunum</span>
+          <span id="modeReadout">True latent</span>
+        </div>
+        <div class="mode-toggle" role="group" aria-label="Gorunum secimi">
+          <button class="mode-button is-active" data-view-mode="latent" type="button">True latent</button>
+          <button class="mode-button" data-view-mode="atlas" type="button">Atlas</button>
+        </div>
+      </div>
+
+      <div class="control-block">
+        <div class="label-row">
+          <span>Kamera</span>
+          <span id="cameraModeReadout">Odakli</span>
+        </div>
+        <div class="mode-toggle" role="group" aria-label="Kamera modu">
+          <button class="mode-button is-active" data-camera-mode="focus" type="button">Odakli</button>
+          <button class="mode-button" data-camera-mode="free" type="button">Free camera</button>
+        </div>
+      </div>
+
+      <div class="control-block">
+        <div class="label-row">
+          <label for="layerSlider">Odak Katman</label>
+          <span id="layerValue">0</span>
+        </div>
+        <input id="layerSlider" type="range" min="0" max="32" step="1" value="0">
+      </div>
+
+      <div class="control-block">
+        <div class="label-row">
+          <label for="thresholdSlider">Ball Tree Esik Mesafesi</label>
+          <span id="thresholdValue">1.18</span>
+        </div>
+        <input id="thresholdSlider" type="range" min="0.45" max="2.85" step="0.01" value="1.18">
+      </div>
+
+      <div class="w-axis-box">
+        <div class="axis-header">
+          <span>Katman Odagi</span>
+          <span id="wAxisReadout">Layer 0</span>
+        </div>
+        <div class="w-axis-track">
+          <div id="wMarker"></div>
+          <span class="w-tick">0</span>
+          <span class="w-tick">8</span>
+          <span class="w-tick">16</span>
+          <span class="w-tick">24</span>
+          <span class="w-tick">32</span>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div>
+          <span class="stats-label">Baglanti sayisi</span>
+          <strong id="edgeCount">0</strong>
+        </div>
+        <div>
+          <span class="stats-label">PCA aciklama</span>
+          <strong id="varianceInfo">-</strong>
+        </div>
+        <div>
+          <span class="stats-label">Gezinti</span>
+          <strong id="navigationReadout">Yatay rotate / Zoom</strong>
+        </div>
+        <div>
+          <span class="stats-label">Hover</span>
+          <strong>Token ayrintisi</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel legend-panel">
+      <div class="legend-header">
+        <span>Renk Haritasi</span>
+        <span id="legendModeLabel" class="mono">True latent / PCA-1 x PCA-2</span>
+      </div>
+      <div class="legend-list">
+        <div class="legend-item" data-category="math" tabindex="0" role="button" aria-pressed="true">
+          <span class="legend-swatch math"></span>
+          <div>
+            <strong>Matematik</strong>
+            <p>Mavi nokta bulutu</p>
+          </div>
+        </div>
+        <div class="legend-item" data-category="language" tabindex="0" role="button" aria-pressed="true">
+          <span class="legend-swatch language"></span>
+          <div>
+            <strong>Dil</strong>
+            <p>Yesil nokta bulutu</p>
+          </div>
+        </div>
+        <div class="legend-item" data-category="code" tabindex="0" role="button" aria-pressed="true">
+          <span class="legend-swatch code"></span>
+          <div>
+            <strong>Kod</strong>
+            <p>Turuncu nokta bulutu</p>
+          </div>
+        </div>
+        <div class="legend-item" data-category="logic" tabindex="0" role="button" aria-pressed="true">
+          <span class="legend-swatch logic"></span>
+          <div>
+            <strong>Mantik</strong>
+            <p>Mor nokta bulutu</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="hoverPanel" class="panel hover-panel">
+      <div class="hover-empty">
+        Bir tokenin ustune gelince token metni, katman ve aktif SVD bilesenleri burada gorunecek.
+      </div>
+    </section>
+
+    <section id="separationPanel" class="panel separation-panel">
+      <div class="hover-empty">
+        Katman bazli ayrisma skoru burada gorunecek.
+      </div>
+    </section>
+
+    <div id="tooltip" class="tooltip hidden"></div>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
