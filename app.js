@@ -22,10 +22,139 @@ let dataLayerMin = DEFAULT_LAYER_MIN;
 let dataLayerMax = DEFAULT_LAYER_MAX;
 
 const CATEGORY_CONFIG = {
-  math: { label: "Matematik", color: "#4d9cff" },
-  language: { label: "Dil", color: "#59d47f" },
-  code: { label: "Kod", color: "#ff9a3c" },
-  logic: { label: "Mantik", color: "#e86dff" },
+  math: { color: "#4d9cff" },
+  language: { color: "#59d47f" },
+  code: { color: "#ff9a3c" },
+  logic: { color: "#e86dff" },
+};
+
+const TRANSLATIONS = {
+  tr: {
+    headerSubtitle: "Panel toggles",
+    panelAbout: "Hakkinda",
+    panelControls: "Kontroller",
+    panelLegend: "Lejant",
+    panelAnalysis: "Analiz",
+    panelHover: "Detay",
+    heroLede: "Varsayilan gorunum true latent modunda secili katmani PCA duzleminde aciyor. Atlas gorunumu istersen geri donebilir, katmanlar arasi izleri ve yakinlik cizgilerini ayni sahnede inceleyebilirsin.",
+    datasetLoading: "Veri yukleniyor",
+    layerRange: "Katman {min}-{max}",
+    tokenCount: "{count} token",
+    viewLabel: "Gorunum",
+    viewLatent: "True latent",
+    viewAtlas: "Atlas",
+    cameraLabel: "Kamera",
+    cameraFocus: "Odakli",
+    cameraFree: "Free camera",
+    layerSliderLabel: "Odak Katman",
+    thresholdSliderLabel: "Ball Tree Esik Mesafesi",
+    layerFocusBoxLabel: "Katman Odagi",
+    connectionCountLabel: "Baglanti sayisi",
+    pcaVarianceLabel: "PCA aciklama",
+    navigationLabel: "Gezinti",
+    navigationFocus: "Yatay rotate / Zoom",
+    navigationFree: "Free rotate / Pan / Zoom",
+    hoverLabel: "Hover",
+    hoverDetailLabel: "Token ayrintisi",
+    legendTitle: "Renk Haritasi",
+    legendAtlas: "Atlas / kategori kolonlari",
+    legendLatentFallback: "True latent / layer-fit PCA",
+    legendMathDesc: "Mavi nokta bulutu",
+    legendLanguageDesc: "Yesil nokta bulutu",
+    legendCodeDesc: "Turuncu nokta bulutu",
+    legendLogicDesc: "Mor nokta bulutu",
+    hoverEmpty: "Bir tokenin ustune gelince token metni, katman ve aktif SVD bilesenleri burada gorunecek.",
+    separationEmpty: "Katman bazli ayrisma skoru burada gorunecek.",
+    layerWord: "Katman",
+    positionWord: "Pozisyon",
+    activationStrength: "Aktivasyon siddeti",
+    pcaPosition: "PCA konumu",
+    promptWord: "Prompt",
+    activeSvd: "Aktif SVD bilesenleri",
+    qkSummary: "QK skor ozeti",
+    topKeys: "Top anahtarlar",
+    separationTitle: "Katman Ayrisma Skoru",
+    separationDescription: "Kategoriler arasi ortalama mesafe. En yuksek skor router icin en net ayrisan katman.",
+    bestLayerShort: "Best L{layer}",
+    spaceFrame: "Uzay cercevesi",
+    activeRegion: "Aktif bolge",
+    selectedLayer: "Secili katman",
+    optimalLayer: "Optimal katman",
+    regionCount: "{count} soru bolgesi",
+    scoreWord: "skor",
+    latentLegendAdaptive: "True latent / layer-fit PCA-{a} x PCA-{b}",
+    category_math: "Matematik",
+    category_language: "Dil",
+    category_code: "Kod",
+    category_logic: "Mantik",
+    shape_empty: "bos alan",
+    shape_wide_rect: "genis yatay dikdortgen",
+    shape_round_rect: "yuvarlatilmis dikdortgen",
+    shape_roundish: "yuvarlaga yakin alan",
+  },
+  en: {
+    headerSubtitle: "Panel toggles",
+    panelAbout: "About",
+    panelControls: "Controls",
+    panelLegend: "Legend",
+    panelAnalysis: "Analysis",
+    panelHover: "Hover",
+    heroLede: "The default view opens the selected layer in true latent mode on the PCA plane. You can switch back to atlas mode and inspect cross-layer traces and neighborhood links in the same scene.",
+    datasetLoading: "Loading data",
+    layerRange: "Layers {min}-{max}",
+    tokenCount: "{count} tokens",
+    viewLabel: "View",
+    viewLatent: "True latent",
+    viewAtlas: "Atlas",
+    cameraLabel: "Camera",
+    cameraFocus: "Focused",
+    cameraFree: "Free camera",
+    layerSliderLabel: "Focus Layer",
+    thresholdSliderLabel: "Ball Tree Threshold",
+    layerFocusBoxLabel: "Layer Focus",
+    connectionCountLabel: "Connection count",
+    pcaVarianceLabel: "PCA variance",
+    navigationLabel: "Navigation",
+    navigationFocus: "Horizontal rotate / Zoom",
+    navigationFree: "Free rotate / Pan / Zoom",
+    hoverLabel: "Hover",
+    hoverDetailLabel: "Token details",
+    legendTitle: "Color Map",
+    legendAtlas: "Atlas / category columns",
+    legendLatentFallback: "True latent / layer-fit PCA",
+    legendMathDesc: "Blue point cloud",
+    legendLanguageDesc: "Green point cloud",
+    legendCodeDesc: "Orange point cloud",
+    legendLogicDesc: "Pink point cloud",
+    hoverEmpty: "When you hover a token, its text, layer, and active SVD components will appear here.",
+    separationEmpty: "Layer-wise separation score will appear here.",
+    layerWord: "Layer",
+    positionWord: "Position",
+    activationStrength: "Activation strength",
+    pcaPosition: "PCA position",
+    promptWord: "Prompt",
+    activeSvd: "Active SVD components",
+    qkSummary: "QK score summary",
+    topKeys: "Top keys",
+    separationTitle: "Layer Separation Score",
+    separationDescription: "Average distance between categories. The highest score marks the clearest layer for routing.",
+    bestLayerShort: "Best L{layer}",
+    spaceFrame: "Space frame",
+    activeRegion: "Active region",
+    selectedLayer: "Selected layer",
+    optimalLayer: "Optimal layer",
+    regionCount: "{count} prompt regions",
+    scoreWord: "score",
+    latentLegendAdaptive: "True latent / layer-fit PCA-{a} x PCA-{b}",
+    category_math: "Math",
+    category_language: "Language",
+    category_code: "Code",
+    category_logic: "Logic",
+    shape_empty: "empty field",
+    shape_wide_rect: "wide horizontal rectangle",
+    shape_round_rect: "rounded rectangle",
+    shape_roundish: "near-circular field",
+  },
 };
 
 const TOKEN_SETS = {
@@ -58,6 +187,8 @@ const wTicks = [...document.querySelectorAll(".w-tick")];
 const legendItems = [...document.querySelectorAll(".legend-item[data-category]")];
 const modeButtons = [...document.querySelectorAll(".mode-button[data-view-mode]")];
 const cameraModeButtons = [...document.querySelectorAll(".mode-button[data-camera-mode]")];
+const headerButtons = [...document.querySelectorAll(".header-button[data-panel-target]")];
+const langButtons = [...document.querySelectorAll(".header-button[data-lang]")];
 const canvas = document.getElementById("scene");
 const tokenCountChip = document.getElementById("tokenCountChip");
 const layerRangeChip = document.getElementById("layerRangeChip");
@@ -66,6 +197,41 @@ const modeReadout = document.getElementById("modeReadout");
 const legendModeLabel = document.getElementById("legendModeLabel");
 const cameraModeReadout = document.getElementById("cameraModeReadout");
 const navigationReadout = document.getElementById("navigationReadout");
+const heroPanel = document.getElementById("heroPanel");
+const controlsPanel = document.getElementById("controlsPanel");
+const legendPanel = document.getElementById("legendPanel");
+const headerSubtitle = document.getElementById("headerSubtitle");
+const panelAboutButton = document.getElementById("panelAboutButton");
+const panelControlsButton = document.getElementById("panelControlsButton");
+const panelLegendButton = document.getElementById("panelLegendButton");
+const panelAnalysisButton = document.getElementById("panelAnalysisButton");
+const panelHoverButton = document.getElementById("panelHoverButton");
+const heroLede = document.getElementById("heroLede");
+const viewLabel = document.getElementById("viewLabel");
+const viewLatentButton = document.getElementById("viewLatentButton");
+const viewAtlasButton = document.getElementById("viewAtlasButton");
+const cameraLabel = document.getElementById("cameraLabel");
+const cameraFocusButton = document.getElementById("cameraFocusButton");
+const cameraFreeButton = document.getElementById("cameraFreeButton");
+const layerSliderLabel = document.getElementById("layerSliderLabel");
+const thresholdSliderLabel = document.getElementById("thresholdSliderLabel");
+const layerFocusBoxLabel = document.getElementById("layerFocusBoxLabel");
+const connectionCountLabel = document.getElementById("connectionCountLabel");
+const pcaVarianceLabel = document.getElementById("pcaVarianceLabel");
+const navigationLabel = document.getElementById("navigationLabel");
+const hoverLabel = document.getElementById("hoverLabel");
+const hoverDetailLabel = document.getElementById("hoverDetailLabel");
+const legendTitle = document.getElementById("legendTitle");
+const legendMathLabel = document.getElementById("legendMathLabel");
+const legendMathDesc = document.getElementById("legendMathDesc");
+const legendLanguageLabel = document.getElementById("legendLanguageLabel");
+const legendLanguageDesc = document.getElementById("legendLanguageDesc");
+const legendCodeLabel = document.getElementById("legendCodeLabel");
+const legendCodeDesc = document.getElementById("legendCodeDesc");
+const legendLogicLabel = document.getElementById("legendLogicLabel");
+const legendLogicDesc = document.getElementById("legendLogicDesc");
+const hoverEmpty = document.getElementById("hoverEmpty");
+const separationEmpty = document.getElementById("separationEmpty");
 
 const dataset = await loadDataset();
 dataset.latentBoundsByLayer = computeLayerLatentBounds(dataset.tokens);
@@ -78,12 +244,11 @@ let selectedLayer = bestLayerRow.layer;
 let hoveredPoint = null;
 let viewMode = "latent";
 let cameraMode = "focus";
+let currentLang = localStorage.getItem("llm-space-lang") === "en" ? "en" : "tr";
+const openPanels = new Set();
 
 dataset.pointInstances = buildPointInstances(dataset);
 dataset.pointSizeRange = computePointSizeRange(dataset.pointInstances);
-tokenCountChip.textContent = `${dataset.tokens.length} token`;
-layerRangeChip.textContent = `Katman ${layerMin}-${layerMax}`;
-datasetChip.textContent = dataset.sourceLabel;
 let spaceFrameProfile = computeSpaceFrame(dataset.pointInstances, activeCategories);
 
 layerSlider.min = `${layerMin}`;
@@ -91,7 +256,7 @@ layerSlider.max = `${layerMax}`;
 layerSlider.value = `${selectedLayer}`;
 layerValue.textContent = `${selectedLayer}`;
 thresholdValue.textContent = Number(thresholdSlider.value).toFixed(2);
-wAxisReadout.textContent = `Layer ${selectedLayer}`;
+wAxisReadout.textContent = `${t("layerWord")} ${selectedLayer}`;
 varianceInfo.textContent = dataset.varianceText;
 updateWMarker(selectedLayer);
 updateWTicks();
@@ -133,7 +298,7 @@ scene.add(accentLight);
 
 const horizontalGuides = createHorizontalGuides();
 const categoryGuides = createCategoryGuides();
-const categoryLabels = createCategoryLabels();
+let categoryLabels = createCategoryLabels();
 const layerLabels = createLayerLabels(layerMin, layerMax);
 scene.add(horizontalGuides);
 scene.add(categoryGuides);
@@ -199,8 +364,10 @@ const pointer = new THREE.Vector2(2, 2);
 const projectedVector = new THREE.Vector3();
 
 let visiblePointInstances = [];
+applyStaticTranslations();
 updateModeUi();
 updateCameraModeUi();
+updatePanelUi();
 updateSceneGeometry();
 updateFocusLayerVisuals();
 renderSeparationPanel();
@@ -226,6 +393,12 @@ modeButtons.forEach((button) => {
 cameraModeButtons.forEach((button) => {
   button.addEventListener("click", () => setCameraMode(button.dataset.cameraMode));
 });
+langButtons.forEach((button) => {
+  button.addEventListener("click", () => setLanguage(button.dataset.lang));
+});
+headerButtons.forEach((button) => {
+  button.addEventListener("click", () => togglePanel(button.dataset.panelTarget));
+});
 separationPanel.addEventListener("click", onSeparationPanelClick);
 
 requestAnimationFrame(animate);
@@ -243,7 +416,7 @@ function animate() {
 function onLayerChange(event) {
   selectedLayer = Number(event.target.value);
   layerValue.textContent = `${selectedLayer}`;
-  wAxisReadout.textContent = `Layer ${selectedLayer}`;
+  wAxisReadout.textContent = `${t("layerWord")} ${selectedLayer}`;
   updateWMarker(selectedLayer);
   updateModeUi();
   updateSceneGeometry();
@@ -273,6 +446,31 @@ function toggleCategory(category) {
   updateSceneGeometry();
   renderSeparationPanel();
   clearHover();
+}
+
+function setLanguage(nextLang) {
+  if (!nextLang || !TRANSLATIONS[nextLang] || nextLang === currentLang) {
+    return;
+  }
+
+  currentLang = nextLang;
+  localStorage.setItem("llm-space-lang", currentLang);
+  applyStaticTranslations();
+  refreshCategoryLabels();
+  updateModeUi();
+  updateCameraModeUi();
+  renderSeparationPanel();
+  setHoverPanel(hoveredPoint ? {
+    token: hoveredPoint.tokenText,
+    category: hoveredPoint.category,
+    layer: hoveredPoint.layer,
+    coords: hoveredPoint.metricPosition,
+    svd: hoveredPoint.svd,
+    promptText: hoveredPoint.promptText,
+    position: hoveredPoint.position,
+    attention: hoveredPoint.attention,
+    activation: hoveredPoint.activationStrength,
+  } : null);
 }
 
 function setViewMode(nextMode) {
@@ -305,6 +503,72 @@ function setCameraMode(nextMode) {
   clearHover();
 }
 
+function togglePanel(panelId) {
+  if (!panelId) {
+    return;
+  }
+
+  if (openPanels.has(panelId)) {
+    openPanels.delete(panelId);
+  } else {
+    openPanels.add(panelId);
+  }
+
+  updatePanelUi();
+}
+
+function t(key, values = {}) {
+  const template = TRANSLATIONS[currentLang]?.[key] ?? TRANSLATIONS.tr[key] ?? key;
+  return template.replace(/\{(\w+)\}/g, (_, token) => `${values[token] ?? ""}`);
+}
+
+function categoryLabel(category) {
+  return t(`category_${category}`);
+}
+
+function applyStaticTranslations() {
+  document.documentElement.lang = currentLang;
+  headerSubtitle.textContent = t("headerSubtitle");
+  panelAboutButton.textContent = t("panelAbout");
+  panelControlsButton.textContent = t("panelControls");
+  panelLegendButton.textContent = t("panelLegend");
+  panelAnalysisButton.textContent = t("panelAnalysis");
+  panelHoverButton.textContent = t("panelHover");
+  heroLede.textContent = t("heroLede");
+  tokenCountChip.textContent = t("tokenCount", { count: dataset.tokens.length });
+  layerRangeChip.textContent = t("layerRange", { min: layerMin, max: layerMax });
+  datasetChip.textContent = dataset.sourceLabel;
+  viewLabel.textContent = t("viewLabel");
+  viewLatentButton.textContent = t("viewLatent");
+  viewAtlasButton.textContent = t("viewAtlas");
+  cameraLabel.textContent = t("cameraLabel");
+  cameraFocusButton.textContent = t("cameraFocus");
+  cameraFreeButton.textContent = t("cameraFree");
+  layerSliderLabel.textContent = t("layerSliderLabel");
+  thresholdSliderLabel.textContent = t("thresholdSliderLabel");
+  layerFocusBoxLabel.textContent = t("layerFocusBoxLabel");
+  connectionCountLabel.textContent = t("connectionCountLabel");
+  pcaVarianceLabel.textContent = t("pcaVarianceLabel");
+  navigationLabel.textContent = t("navigationLabel");
+  hoverLabel.textContent = t("hoverLabel");
+  hoverDetailLabel.textContent = t("hoverDetailLabel");
+  legendTitle.textContent = t("legendTitle");
+  legendMathLabel.textContent = categoryLabel("math");
+  legendMathDesc.textContent = t("legendMathDesc");
+  legendLanguageLabel.textContent = categoryLabel("language");
+  legendLanguageDesc.textContent = t("legendLanguageDesc");
+  legendCodeLabel.textContent = categoryLabel("code");
+  legendCodeDesc.textContent = t("legendCodeDesc");
+  legendLogicLabel.textContent = categoryLabel("logic");
+  legendLogicDesc.textContent = t("legendLogicDesc");
+  hoverEmpty.textContent = t("hoverEmpty");
+  separationEmpty.textContent = t("separationEmpty");
+  wAxisReadout.textContent = `${t("layerWord")} ${selectedLayer}`;
+  langButtons.forEach((button) => {
+    button.setAttribute("aria-pressed", button.dataset.lang === currentLang ? "true" : "false");
+  });
+}
+
 function updateSceneGeometry() {
   visiblePointInstances = dataset.pointInstances.filter((point) => (
     activeCategories.has(point.category) &&
@@ -319,8 +583,8 @@ function updateSceneGeometry() {
 
 function updateModeUi() {
   const latent = viewMode === "latent";
-  modeReadout.textContent = latent ? "True latent" : "Atlas";
-  legendModeLabel.textContent = latent ? buildLatentLegendLabel(selectedLayer) : "Atlas / kategori kolonlari";
+  modeReadout.textContent = latent ? t("viewLatent") : t("viewAtlas");
+  legendModeLabel.textContent = latent ? buildLatentLegendLabel(selectedLayer) : t("legendAtlas");
   modeButtons.forEach((button) => {
     button.classList.toggle("is-active", button.dataset.viewMode === viewMode);
   });
@@ -332,10 +596,42 @@ function updateModeUi() {
   inspectionSlice.outline.material.opacity = latent ? 0.2 : 0.34;
 }
 
+function updatePanelUi() {
+  const panelMap = {
+    heroPanel,
+    controlsPanel,
+    legendPanel,
+    hoverPanel,
+    separationPanel,
+  };
+
+  Object.entries(panelMap).forEach(([panelId, panel]) => {
+    if (!panel) {
+      return;
+    }
+    panel.classList.toggle("is-collapsed", !openPanels.has(panelId));
+  });
+
+  headerButtons.forEach((button) => {
+    const expanded = openPanels.has(button.dataset.panelTarget);
+    button.setAttribute("aria-pressed", expanded ? "true" : "false");
+  });
+}
+
+function refreshCategoryLabels() {
+  if (!scene) {
+    return;
+  }
+  scene.remove(categoryLabels);
+  categoryLabels = createCategoryLabels();
+  categoryLabels.visible = viewMode !== "latent";
+  scene.add(categoryLabels);
+}
+
 function updateCameraModeUi() {
   const free = cameraMode === "free";
-  cameraModeReadout.textContent = free ? "Free camera" : "Odakli";
-  navigationReadout.textContent = free ? "Free rotate / Pan / Zoom" : "Yatay rotate / Zoom";
+  cameraModeReadout.textContent = free ? t("cameraFree") : t("cameraFocus");
+  navigationReadout.textContent = free ? t("navigationFree") : t("navigationFocus");
   cameraModeButtons.forEach((button) => {
     button.classList.toggle("is-active", button.dataset.cameraMode === cameraMode);
   });
@@ -367,9 +663,9 @@ function getLayerEntryPosition(layerEntry) {
 function buildLatentLegendLabel(layer) {
   const bounds = dataset.latentBoundsByLayer[layer];
   if (!bounds) {
-    return "True latent / layer-fit PCA";
+    return t("legendLatentFallback");
   }
-  return `True latent / layer-fit PCA-${bounds.compA + 1} x PCA-${bounds.compB + 1}`;
+  return t("latentLegendAdaptive", { a: bounds.compA + 1, b: bounds.compB + 1 });
 }
 
 function updatePointsGeometry() {
@@ -491,7 +787,7 @@ function updateHover() {
 
   const category = CATEGORY_CONFIG[hovered.category] ?? CATEGORY_CONFIG.language;
   tooltip.classList.remove("hidden");
-  tooltip.innerHTML = `<strong>${escapeHtml(hovered.tokenText)}</strong><span>${category.label} - Layer ${hovered.layer}</span>`;
+  tooltip.innerHTML = `<strong>${escapeHtml(hovered.tokenText)}</strong><span>${categoryLabel(hovered.category)} - ${t("layerWord")} ${hovered.layer}</span>`;
 
   setHoverPanel({
     token: hovered.tokenText,
@@ -571,7 +867,7 @@ function onSeparationPanelClick(event) {
   selectedLayer = Number(row.dataset.layer);
   layerSlider.value = `${selectedLayer}`;
   layerValue.textContent = `${selectedLayer}`;
-  wAxisReadout.textContent = `Layer ${selectedLayer}`;
+  wAxisReadout.textContent = `${t("layerWord")} ${selectedLayer}`;
   updateWMarker(selectedLayer);
   updateModeUi();
   updateSceneGeometry();
@@ -580,7 +876,7 @@ function onSeparationPanelClick(event) {
   clearHover();
 }
 
-function renderSeparationPanel() {
+function renderSeparationPanelLegacy() {
   const hotspotCount = computeLayerActivityHotspots(dataset.pointInstances, selectedLayer, activeCategories).length;
   const maxScore = Math.max(...layerScores.map((row) => row.score), 1e-6);
   const rows = layerScores
@@ -614,7 +910,7 @@ function renderSeparationPanel() {
   `;
 }
 
-function setHoverPanel(payload) {
+function setHoverPanelLegacy(payload) {
   if (!payload) {
     hoverPanel.innerHTML = `
       <div class="hover-empty">
@@ -656,6 +952,79 @@ function setHoverPanel(payload) {
 
 function hideTooltip() {
   tooltip.classList.add("hidden");
+}
+
+function renderSeparationPanel() {
+  const hotspotCount = computeLayerActivityHotspots(dataset.pointInstances, selectedLayer, activeCategories).length;
+  const maxScore = Math.max(...layerScores.map((row) => row.score), 1e-6);
+  const rows = layerScores
+    .map((row) => `
+      <div class="layer-score-item ${row.layer === bestLayerRow.layer ? "is-best" : ""} ${row.layer === selectedLayer ? "is-selected" : ""}" data-layer="${row.layer}">
+        <span class="layer-score-label">L${row.layer}</span>
+        <div class="layer-score-bar">
+          <span class="layer-score-fill" style="width:${(row.score / maxScore) * 100}%"></span>
+        </div>
+        <span class="layer-score-value">${row.score.toFixed(2)}</span>
+      </div>
+    `)
+    .join("");
+
+  const selectedRow = layerScores.find((row) => row.layer === selectedLayer) ?? bestLayerRow;
+  separationPanel.innerHTML = `
+    <div class="separation-header">
+      <div>
+        <h3>${t("separationTitle")}</h3>
+        <p>${t("separationDescription")}</p>
+      </div>
+      <div class="score-badge">${t("bestLayerShort", { layer: bestLayerRow.layer })}</div>
+    </div>
+    <div class="hover-grid">
+      <p><strong>${t("spaceFrame")}:</strong> ${spaceFrameProfile.shapeLabel}</p>
+      <p><strong>${t("activeRegion")}:</strong> ${t("regionCount", { count: hotspotCount })}</p>
+      <p><strong>${t("selectedLayer")}:</strong> L${selectedRow.layer} · ${t("scoreWord")} ${selectedRow.score.toFixed(2)}</p>
+      <p><strong>${t("optimalLayer")}:</strong> L${bestLayerRow.layer} · ${t("scoreWord")} ${bestLayerRow.score.toFixed(2)}</p>
+    </div>
+    <div class="layer-score-list">${rows}</div>
+  `;
+}
+
+function setHoverPanel(payload) {
+  if (!payload) {
+    hoverPanel.innerHTML = `
+      <div class="hover-empty">
+        ${t("hoverEmpty")}
+      </div>
+    `;
+    return;
+  }
+
+  const componentPills = payload.svd
+    .map((component) => `<span class="component-pill">${component.name} ${formatSigned(component.value)}</span>`)
+    .join("");
+
+  const attentionBlock = payload.attention
+    ? `
+      <p><strong>${t("qkSummary")}:</strong> mean=${payload.attention.scoreMean.toFixed(2)}, min=${payload.attention.scoreMin.toFixed(2)}, max=${payload.attention.scoreMax.toFixed(2)}</p>
+      <p><strong>${t("topKeys")}:</strong> ${payload.attention.topKeys.map((item) => `${escapeHtml(item.token)}@${item.position}`).join(", ") || "-"}</p>
+    `
+    : "";
+
+  hoverPanel.innerHTML = `
+    <div class="hover-card-header">
+      <div><p class="hover-token">${escapeHtml(payload.token)}</p></div>
+      <span class="hover-category ${payload.category}">${categoryLabel(payload.category)}</span>
+    </div>
+    <div class="hover-grid">
+      <p><strong>${t("layerWord")}:</strong> ${payload.layer}</p>
+      <p><strong>${t("positionWord")}:</strong> ${payload.position}</p>
+      <p><strong>${t("activationStrength")}:</strong> ${payload.activation.toFixed(2)}</p>
+      <p><strong>${t("pcaPosition")}:</strong> x=${payload.coords[0].toFixed(2)}, y=${payload.coords[1].toFixed(2)}, z=${payload.coords[2].toFixed(2)}</p>
+      <p><strong>${t("promptWord")}:</strong> ${escapeHtml(payload.promptText)}</p>
+      <p><strong>${t("activeSvd")}:</strong></p>
+      <div class="component-list">${componentPills}</div>
+      ${attentionBlock}
+    </div>
+  `;
 }
 
 function updateWMarker(layer) {
@@ -756,7 +1125,7 @@ function createCategoryLabels() {
   CATEGORY_ORDER.forEach((category) => {
     group.add(
       createTextSprite(
-        CATEGORY_CONFIG[category].label,
+        categoryLabel(category),
         CATEGORY_CONFIG[category].color,
         new THREE.Vector3(CATEGORY_X[category], layerToY(layerMin) - 0.9, 0),
         1.6,
@@ -1194,7 +1563,7 @@ function computeSpaceFrame(pointInstances, enabledCategories) {
       centerZ: 0,
       width: 1,
       depth: 1,
-      shapeLabel: "bos alan",
+      shapeLabel: t("shape_empty"),
     };
   }
 
@@ -1214,7 +1583,7 @@ function computeSpaceFrame(pointInstances, enabledCategories) {
     centerZ: (minZ + maxZ) / 2,
     width,
     depth,
-    shapeLabel: aspect > 3 ? "genis yatay dikdortgen" : aspect > 1.5 ? "yuvarlatilmis dikdortgen" : "yuvarlaga yakin alan",
+    shapeLabel: aspect > 3 ? t("shape_wide_rect") : aspect > 1.5 ? t("shape_round_rect") : t("shape_roundish"),
   };
 }
 

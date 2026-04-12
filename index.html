@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./styles.css?v=20260412-panel-toggle">
   <script type="importmap">
     {
       "imports": {
@@ -20,10 +20,30 @@
   <div id="appShell">
     <canvas id="scene"></canvas>
 
-    <aside class="panel hero-panel">
+    <header class="panel app-header">
+      <div class="app-header-title">
+        <strong>LLM Space Explorer</strong>
+        <span id="headerSubtitle">Panel toggles</span>
+      </div>
+      <div class="header-right">
+        <div class="lang-toggle" role="group" aria-label="Language">
+          <button id="langTrButton" class="header-button is-small" data-lang="tr" type="button" aria-pressed="true">TR</button>
+          <button id="langEnButton" class="header-button is-small" data-lang="en" type="button" aria-pressed="false">EN</button>
+        </div>
+        <div class="header-toggle-row" role="toolbar" aria-label="Panel toggles">
+          <button id="panelAboutButton" class="header-button" data-panel-target="heroPanel" type="button" aria-pressed="false">About</button>
+          <button id="panelControlsButton" class="header-button" data-panel-target="controlsPanel" type="button" aria-pressed="false">Controls</button>
+          <button id="panelLegendButton" class="header-button" data-panel-target="legendPanel" type="button" aria-pressed="false">Legend</button>
+          <button id="panelAnalysisButton" class="header-button" data-panel-target="separationPanel" type="button" aria-pressed="false">Analysis</button>
+          <button id="panelHoverButton" class="header-button" data-panel-target="hoverPanel" type="button" aria-pressed="false">Hover</button>
+        </div>
+      </div>
+    </header>
+
+    <aside id="heroPanel" class="panel hero-panel panel-drawer is-collapsed">
       <p class="eyebrow">Three.js + Mock Hidden States</p>
       <h1>4D Embedding Space Visualizer</h1>
-      <p class="lede">
+      <p id="heroLede" class="lede">
         Varsayilan gorunum true latent modunda secili katmani PCA duzleminde aciyor. Atlas
         gorunumu istersen geri donebilir, katmanlar arasi izleri ve yakinlik cizgilerini
         ayni sahnede inceleyebilirsin.
@@ -35,32 +55,32 @@
       </div>
     </aside>
 
-    <section class="panel controls-panel">
+    <section id="controlsPanel" class="panel controls-panel panel-drawer is-collapsed">
       <div class="control-block">
         <div class="label-row">
-          <span>Gorunum</span>
+          <span id="viewLabel">Gorunum</span>
           <span id="modeReadout">True latent</span>
         </div>
         <div class="mode-toggle" role="group" aria-label="Gorunum secimi">
-          <button class="mode-button is-active" data-view-mode="latent" type="button">True latent</button>
-          <button class="mode-button" data-view-mode="atlas" type="button">Atlas</button>
+          <button id="viewLatentButton" class="mode-button is-active" data-view-mode="latent" type="button">True latent</button>
+          <button id="viewAtlasButton" class="mode-button" data-view-mode="atlas" type="button">Atlas</button>
         </div>
       </div>
 
       <div class="control-block">
         <div class="label-row">
-          <span>Kamera</span>
+          <span id="cameraLabel">Kamera</span>
           <span id="cameraModeReadout">Odakli</span>
         </div>
         <div class="mode-toggle" role="group" aria-label="Kamera modu">
-          <button class="mode-button is-active" data-camera-mode="focus" type="button">Odakli</button>
-          <button class="mode-button" data-camera-mode="free" type="button">Free camera</button>
+          <button id="cameraFocusButton" class="mode-button is-active" data-camera-mode="focus" type="button">Odakli</button>
+          <button id="cameraFreeButton" class="mode-button" data-camera-mode="free" type="button">Free camera</button>
         </div>
       </div>
 
       <div class="control-block">
         <div class="label-row">
-          <label for="layerSlider">Odak Katman</label>
+          <label id="layerSliderLabel" for="layerSlider">Odak Katman</label>
           <span id="layerValue">0</span>
         </div>
         <input id="layerSlider" type="range" min="0" max="32" step="1" value="0">
@@ -68,7 +88,7 @@
 
       <div class="control-block">
         <div class="label-row">
-          <label for="thresholdSlider">Ball Tree Esik Mesafesi</label>
+          <label id="thresholdSliderLabel" for="thresholdSlider">Ball Tree Esik Mesafesi</label>
           <span id="thresholdValue">1.18</span>
         </div>
         <input id="thresholdSlider" type="range" min="0.45" max="2.85" step="0.01" value="1.18">
@@ -76,7 +96,7 @@
 
       <div class="w-axis-box">
         <div class="axis-header">
-          <span>Katman Odagi</span>
+          <span id="layerFocusBoxLabel">Katman Odagi</span>
           <span id="wAxisReadout">Layer 0</span>
         </div>
         <div class="w-axis-track">
@@ -91,69 +111,69 @@
 
       <div class="stats-grid">
         <div>
-          <span class="stats-label">Baglanti sayisi</span>
+          <span id="connectionCountLabel" class="stats-label">Baglanti sayisi</span>
           <strong id="edgeCount">0</strong>
         </div>
         <div>
-          <span class="stats-label">PCA aciklama</span>
+          <span id="pcaVarianceLabel" class="stats-label">PCA aciklama</span>
           <strong id="varianceInfo">-</strong>
         </div>
         <div>
-          <span class="stats-label">Gezinti</span>
+          <span id="navigationLabel" class="stats-label">Gezinti</span>
           <strong id="navigationReadout">Yatay rotate / Zoom</strong>
         </div>
         <div>
-          <span class="stats-label">Hover</span>
-          <strong>Token ayrintisi</strong>
+          <span id="hoverLabel" class="stats-label">Hover</span>
+          <strong id="hoverDetailLabel">Token ayrintisi</strong>
         </div>
       </div>
     </section>
 
-    <section class="panel legend-panel">
+    <section id="legendPanel" class="panel legend-panel panel-drawer is-collapsed">
       <div class="legend-header">
-        <span>Renk Haritasi</span>
+        <span id="legendTitle">Renk Haritasi</span>
         <span id="legendModeLabel" class="mono">True latent / PCA-1 x PCA-2</span>
       </div>
       <div class="legend-list">
         <div class="legend-item" data-category="math" tabindex="0" role="button" aria-pressed="true">
           <span class="legend-swatch math"></span>
           <div>
-            <strong>Matematik</strong>
-            <p>Mavi nokta bulutu</p>
+            <strong id="legendMathLabel">Matematik</strong>
+            <p id="legendMathDesc">Mavi nokta bulutu</p>
           </div>
         </div>
         <div class="legend-item" data-category="language" tabindex="0" role="button" aria-pressed="true">
           <span class="legend-swatch language"></span>
           <div>
-            <strong>Dil</strong>
-            <p>Yesil nokta bulutu</p>
+            <strong id="legendLanguageLabel">Dil</strong>
+            <p id="legendLanguageDesc">Yesil nokta bulutu</p>
           </div>
         </div>
         <div class="legend-item" data-category="code" tabindex="0" role="button" aria-pressed="true">
           <span class="legend-swatch code"></span>
           <div>
-            <strong>Kod</strong>
-            <p>Turuncu nokta bulutu</p>
+            <strong id="legendCodeLabel">Kod</strong>
+            <p id="legendCodeDesc">Turuncu nokta bulutu</p>
           </div>
         </div>
         <div class="legend-item" data-category="logic" tabindex="0" role="button" aria-pressed="true">
           <span class="legend-swatch logic"></span>
           <div>
-            <strong>Mantik</strong>
-            <p>Mor nokta bulutu</p>
+            <strong id="legendLogicLabel">Mantik</strong>
+            <p id="legendLogicDesc">Mor nokta bulutu</p>
           </div>
         </div>
       </div>
     </section>
 
-    <section id="hoverPanel" class="panel hover-panel">
-      <div class="hover-empty">
+    <section id="hoverPanel" class="panel hover-panel panel-drawer is-collapsed">
+      <div id="hoverEmpty" class="hover-empty">
         Bir tokenin ustune gelince token metni, katman ve aktif SVD bilesenleri burada gorunecek.
       </div>
     </section>
 
-    <section id="separationPanel" class="panel separation-panel">
-      <div class="hover-empty">
+    <section id="separationPanel" class="panel separation-panel panel-drawer is-collapsed">
+      <div id="separationEmpty" class="hover-empty">
         Katman bazli ayrisma skoru burada gorunecek.
       </div>
     </section>
@@ -161,6 +181,6 @@
     <div id="tooltip" class="tooltip hidden"></div>
   </div>
 
-  <script type="module" src="./app.js"></script>
+  <script type="module" src="./app.js?v=20260412-panel-toggle"></script>
 </body>
 </html>
