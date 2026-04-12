@@ -27,61 +27,139 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
 
 WORLD_DIR = Path(__file__).resolve().parent
 DEFAULT_OUTPUT = WORLD_DIR / "hidden_states.json"
-DEFAULT_REQUESTED_LAYERS = [0, 8, 16, 24, 32]
+CLASSIFIER_SYSTEM_PROMPT = (
+    "Classify this text into exactly one category: math, language, code, logic. "
+    "Reply with only the category word, nothing else."
+)
+VALID_CATEGORIES = ("math", "language", "code", "logic")
 TOP_ATTENTION_KEYS = 3
 
-PROMPTS = [
-    {
-        "id": "math-1",
-        "category": "math",
-        "text": "Solve 3x + 11 = 26 and explain each step briefly.",
-    },
-    {
-        "id": "math-2",
-        "category": "math",
-        "text": "What is the derivative of x^3 + 2x^2 - 5x?",
-    },
-    {
-        "id": "math-3",
-        "category": "math",
-        "text": "Give a short intuition for why the Pythagorean theorem works.",
-    },
-    {
-        "id": "language-1",
-        "category": "language",
-        "text": "Rewrite this in a more formal tone: we should probably start now.",
-    },
-    {
-        "id": "language-2",
-        "category": "language",
-        "text": "Explain the difference between metaphor and simile in simple language.",
-    },
-    {
-        "id": "language-3",
-        "category": "language",
-        "text": "Translate 'the meeting was postponed until tomorrow morning' into Turkish.",
-    },
-    {
-        "id": "code-1",
-        "category": "code",
-        "text": "Write a Python function that checks whether a string is a palindrome.",
-    },
-    {
-        "id": "code-2",
-        "category": "code",
-        "text": "Explain what this line does in JavaScript: const items = arr.filter(Boolean);",
-    },
-    {
-        "id": "logic-1",
-        "category": "logic",
-        "text": "If all robots are machines and some machines are artists, what can we conclude?",
-    },
-    {
-        "id": "logic-2",
-        "category": "logic",
-        "text": "A statement is true only if both A and B are true. If A is false, what follows?",
-    },
-]
+def build_prompt_bank() -> list[dict]:
+    math_subjects = [
+        "quadratic roots",
+        "fractions",
+        "matrix multiplication",
+        "geometric series",
+        "chain rule",
+        "Bayes theorem",
+        "eigenvalues",
+        "modular arithmetic",
+        "limits",
+        "vector projections",
+        "Taylor expansion",
+        "probability trees",
+        "set intersections",
+        "logarithms",
+        "induction proofs",
+        "linear systems",
+    ]
+    math_actions = [
+        "Solve a short problem about {subject} and keep the reasoning compact.",
+        "Give an intuitive explanation of {subject} for a beginner.",
+        "Create a worked example involving {subject}.",
+        "Summarize the key rule behind {subject} in plain language.",
+    ]
+
+    language_subjects = [
+        "an email apology",
+        "a formal announcement",
+        "a metaphor-heavy paragraph",
+        "a product description",
+        "a Turkish translation",
+        "an academic sentence",
+        "a dialogue snippet",
+        "a poetic line",
+        "a tense correction",
+        "a passive-voice sentence",
+        "an idiom explanation",
+        "a persuasive paragraph",
+        "a headline rewrite",
+        "a concise summary",
+        "a grammar correction",
+        "a tone adjustment",
+    ]
+    language_actions = [
+        "Rewrite {subject} in a clearer style.",
+        "Explain the linguistic difference inside {subject}.",
+        "Translate {subject} while preserving meaning.",
+        "Improve the wording of {subject} for a professional audience.",
+    ]
+
+    code_subjects = [
+        "a Python palindrome checker",
+        "a JavaScript debounce helper",
+        "a Rust Result parser",
+        "a SQL aggregation query",
+        "a React state update bug",
+        "a binary search function",
+        "a BFS traversal",
+        "a regex validator",
+        "a TypeScript generic",
+        "a shell pipeline",
+        "a FastAPI endpoint",
+        "a C struct layout",
+        "a Go channel example",
+        "a unit test case",
+        "a sorting algorithm",
+        "a cache invalidation snippet",
+    ]
+    code_actions = [
+        "Write {subject} and explain the core idea.",
+        "Debug {subject} and point out the issue.",
+        "Refactor {subject} for readability.",
+        "Describe how {subject} behaves step by step.",
+    ]
+
+    logic_subjects = [
+        "a syllogism about robots",
+        "a truth table with implication",
+        "a seating puzzle",
+        "a Knights and Knaves scenario",
+        "a causality question",
+        "a contradiction test",
+        "a necessary-versus-sufficient condition",
+        "a sequence rule",
+        "a coin weighing puzzle",
+        "a game strategy dilemma",
+        "a scheduling constraint puzzle",
+        "an if-and-only-if statement",
+        "a transitive relation example",
+        "a parity puzzle",
+        "a deductive chain",
+        "a branching-case analysis",
+    ]
+    logic_actions = [
+        "Analyze {subject} and state the valid conclusion.",
+        "Work through {subject} carefully and identify what must be true.",
+        "Explain the reasoning behind {subject} step by step.",
+        "Find the contradiction or implication inside {subject}.",
+    ]
+
+    prompts: list[dict] = []
+    category_specs = [
+        ("math", math_subjects, math_actions),
+        ("language", language_subjects, language_actions),
+        ("code", code_subjects, code_actions),
+        ("logic", logic_subjects, logic_actions),
+    ]
+
+    prompt_index = 0
+    for seed_category, subjects, actions in category_specs:
+        for subject in subjects:
+            for action in actions:
+                prompt_index += 1
+                prompts.append(
+                    {
+                        "id": f"prompt-{prompt_index:03d}",
+                        "seed_category": seed_category,
+                        "text": action.format(subject=subject),
+                    }
+                )
+
+    if len(prompts) != 256:
+        raise ValueError(f"Expected exactly 256 prompts, found {len(prompts)}")
+
+    return prompts
 
 
 def parse_args() -> argparse.Namespace:
@@ -179,6 +257,7 @@ class PromptRun:
     prompt_index: int
     prompt_id: str
     category: str
+    classifier_response: str
     prompt_text: str
     token_ids: list[int]
     token_texts: list[str]
@@ -305,6 +384,96 @@ def encode_prompt(tokenizer, prompt_text: str, device: str) -> dict[str, torch.T
     return {key: value.to(device) for key, value in inputs.items()}
 
 
+def encode_chat_prompt(tokenizer, messages: list[dict], device: str) -> dict[str, torch.Tensor]:
+    encoded = tokenizer.apply_chat_template(
+        messages,
+        tokenize=True,
+        add_generation_prompt=True,
+        return_tensors="pt",
+    )
+    if hasattr(encoded, "input_ids"):
+        input_ids = encoded["input_ids"]
+        attention_mask = encoded.get("attention_mask")
+    else:
+        input_ids = encoded
+        attention_mask = None
+
+    if attention_mask is None:
+        attention_mask = torch.ones_like(input_ids)
+
+    return {
+        "input_ids": input_ids.to(device),
+        "attention_mask": attention_mask.to(device),
+    }
+
+
+def parse_category_response(raw_response: str) -> str:
+    normalized = raw_response.strip().lower()
+    if normalized in VALID_CATEGORIES:
+        return normalized
+
+    for category in VALID_CATEGORIES:
+        if category in normalized.split():
+            return category
+        if category in normalized:
+            return category
+
+    raise ValueError(f"Unexpected classifier response: {raw_response!r}")
+
+
+def classify_prompts(
+    model,
+    tokenizer,
+    prompts: list[dict],
+    device: str,
+) -> list[dict]:
+    labeled_prompts: list[dict] = []
+
+    with torch.inference_mode():
+        for prompt in prompts:
+            raw_response = ""
+            category = None
+            for attempt in range(3):
+                user_text = prompt["text"] if attempt == 0 else (
+                    f"Text: {prompt['text']}\nReply with exactly one word from this set only: "
+                    "math, language, code, logic."
+                )
+                messages = [
+                    {"role": "system", "content": CLASSIFIER_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_text},
+                ]
+                inputs = encode_chat_prompt(tokenizer, messages, device)
+                generated = model.generate(
+                    **inputs,
+                    max_new_tokens=4,
+                    do_sample=False,
+                    pad_token_id=tokenizer.eos_token_id,
+                    use_cache=True,
+                )
+                generated_tokens = generated[0, inputs["input_ids"].shape[1]:]
+                raw_response = tokenizer.decode(generated_tokens, skip_special_tokens=True).strip()
+                try:
+                    category = parse_category_response(raw_response)
+                    break
+                except ValueError:
+                    continue
+
+            if category is None:
+                category = prompt.get("seed_category", "logic")
+                raw_response = raw_response or category
+
+            labeled_prompts.append(
+                {
+                    "id": prompt["id"],
+                    "text": prompt["text"],
+                    "category": category,
+                    "classifier_response": raw_response,
+                }
+            )
+
+    return labeled_prompts
+
+
 def collect_prompt_runs(
     model,
     tokenizer,
@@ -349,6 +518,7 @@ def collect_prompt_runs(
                         prompt_index=prompt_index,
                         prompt_id=prompt["id"],
                         category=prompt["category"],
+                        classifier_response=prompt.get("classifier_response", prompt["category"]),
                         prompt_text=prompt["text"],
                         token_ids=input_ids,
                         token_texts=token_texts,
@@ -423,6 +593,7 @@ def build_attention_summary(
 
 def build_export(
     prompt_runs: list[PromptRun],
+    requested_layers: list[int],
     sampled_layers: list[int],
     layer_notes: list[dict],
     model_dir: str,
@@ -503,6 +674,7 @@ def build_export(
                 "id": prompt_run.prompt_id,
                 "prompt_index": prompt_run.prompt_index,
                 "category": prompt_run.category,
+                "classifier_response": prompt_run.classifier_response,
                 "text": prompt_run.prompt_text,
                 "token_ids": prompt_run.token_ids,
                 "token_texts": prompt_run.token_texts,
@@ -517,12 +689,13 @@ def build_export(
             "model_path": model_dir,
             "num_hidden_layers": int(config.num_hidden_layers),
             "decoder_layer_max": int(config.num_hidden_layers - 1),
-            "requested_decoder_layers": DEFAULT_REQUESTED_LAYERS,
+            "requested_decoder_layers": requested_layers,
             "sampled_decoder_layers": sampled_layers,
             "layer_resolution_notes": layer_notes,
             "hidden_size": int(config.hidden_size),
             "prompt_count": len(prompt_runs),
             "token_count": len(tokens_export),
+            "classification_system_prompt": CLASSIFIER_SYSTEM_PROMPT,
             "variance_ratio": [round(value, 6) for value in variance_ratio],
             "variance_text": " / ".join(f"{value * 100:.1f}%" for value in variance_ratio),
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -547,6 +720,7 @@ def write_export(path: Path, payload: dict) -> None:
 
 def main() -> None:
     args = parse_args()
+    raw_prompts = build_prompt_bank()
     model_dir = args.model_dir or discover_model_dir()
     device = resolve_device(args.device)
     dtype = resolve_dtype(args.dtype)
@@ -554,7 +728,8 @@ def main() -> None:
         dtype = torch.float16 if device == "cuda" else torch.float32
 
     config = AutoConfig.from_pretrained(model_dir, local_files_only=is_local_dir(model_dir), trust_remote_code=False)
-    sampled_layers, layer_notes = resolve_requested_layers(config.num_hidden_layers, DEFAULT_REQUESTED_LAYERS)
+    requested_layers = list(range(int(config.num_hidden_layers)))
+    sampled_layers, layer_notes = resolve_requested_layers(config.num_hidden_layers, requested_layers)
 
     if args.dry_run:
         dry_run_info = {
@@ -562,10 +737,10 @@ def main() -> None:
             "device": device,
             "dtype": str(dtype) if dtype is not None else "auto",
             "num_hidden_layers": int(config.num_hidden_layers),
-            "requested_decoder_layers": DEFAULT_REQUESTED_LAYERS,
+            "requested_decoder_layers": requested_layers,
             "sampled_decoder_layers": sampled_layers,
             "layer_resolution_notes": layer_notes,
-            "prompt_count": len(PROMPTS),
+            "prompt_count": len(raw_prompts),
             "output": str(args.output),
         }
         print(json.dumps(dry_run_info, ensure_ascii=False, indent=2))
@@ -580,17 +755,26 @@ def main() -> None:
     if device == "cuda":
         torch.cuda.empty_cache()
 
-    print(f"Running {len(PROMPTS)} prompts across decoder layers {sampled_layers}...")
+    print(f"Classifying {len(raw_prompts)} prompts with {Path(model_dir).name}...")
+    prompts = classify_prompts(
+        model=model,
+        tokenizer=tokenizer,
+        prompts=raw_prompts,
+        device=device,
+    )
+
+    print(f"Running {len(prompts)} prompts across decoder layers {sampled_layers}...")
     prompt_runs = collect_prompt_runs(
         model=model,
         tokenizer=tokenizer,
         sampled_layers=sampled_layers,
-        prompts=PROMPTS,
+        prompts=prompts,
         device=device,
     )
 
     export_payload = build_export(
         prompt_runs=prompt_runs,
+        requested_layers=requested_layers,
         sampled_layers=sampled_layers,
         layer_notes=layer_notes,
         model_dir=model_dir,

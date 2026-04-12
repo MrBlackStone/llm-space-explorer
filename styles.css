@@ -208,6 +208,10 @@ body::before {
   gap: 8px;
 }
 
+.mode-toggle-triple {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .mode-button {
   appearance: none;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -230,6 +234,32 @@ body::before {
   background: linear-gradient(135deg, rgba(77, 156, 255, 0.24), rgba(255, 154, 60, 0.16));
   border-color: rgba(151, 209, 255, 0.38);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.inline-action-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.control-input {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  border-radius: 14px;
+  padding: 11px 14px;
+  font: inherit;
+}
+
+.control-input::placeholder {
+  color: rgba(238, 243, 247, 0.45);
+}
+
+.control-input:focus {
+  outline: 2px solid rgba(151, 209, 255, 0.28);
+  outline-offset: 2px;
 }
 
 .label-row,

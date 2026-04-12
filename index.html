@@ -88,6 +88,22 @@
 
       <div class="control-block">
         <div class="label-row">
+          <label id="layerVisibilityLabel" for="layerSelectionInput">Gorunur Katmanlar</label>
+          <span id="layerVisibilityReadout">Secili</span>
+        </div>
+        <div class="mode-toggle mode-toggle-triple" role="group" aria-label="Katman gorunurlugu">
+          <button id="visibleLayerCurrentButton" class="mode-button is-active" data-layer-visibility="current" type="button">Secili</button>
+          <button id="visibleLayerAllButton" class="mode-button" data-layer-visibility="all" type="button">Hepsi</button>
+          <button id="visibleLayerCustomButton" class="mode-button" data-layer-visibility="custom" type="button">Ozel</button>
+        </div>
+        <div class="inline-action-row">
+          <input id="layerSelectionInput" class="control-input" type="text" value="0" placeholder="0, 4, 8-12">
+          <button id="applyLayerSelectionButton" class="header-button" type="button">Uygula</button>
+        </div>
+      </div>
+
+      <div class="control-block">
+        <div class="label-row">
           <label id="thresholdSliderLabel" for="thresholdSlider">Ball Tree Esik Mesafesi</label>
           <span id="thresholdValue">1.18</span>
         </div>

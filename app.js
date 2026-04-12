@@ -47,6 +47,15 @@ const TRANSLATIONS = {
     cameraFocus: "Odakli",
     cameraFree: "Free camera",
     layerSliderLabel: "Odak Katman",
+    layerVisibilityLabel: "Gorunur Katmanlar",
+    layerVisibilityCurrent: "Secili",
+    layerVisibilityAll: "Hepsi",
+    layerVisibilityCustom: "Ozel",
+    layerVisibilityApply: "Uygula",
+    layerVisibilityPlaceholder: "0, 4, 8-12",
+    layerVisibilitySummaryCurrent: "Secili",
+    layerVisibilitySummaryAll: "Tum katmanlar",
+    layerVisibilitySummaryCustom: "Ozel",
     thresholdSliderLabel: "Ball Tree Esik Mesafesi",
     layerFocusBoxLabel: "Katman Odagi",
     connectionCountLabel: "Baglanti sayisi",
@@ -110,6 +119,15 @@ const TRANSLATIONS = {
     cameraFocus: "Focused",
     cameraFree: "Free camera",
     layerSliderLabel: "Focus Layer",
+    layerVisibilityLabel: "Visible Layers",
+    layerVisibilityCurrent: "Current",
+    layerVisibilityAll: "All",
+    layerVisibilityCustom: "Custom",
+    layerVisibilityApply: "Apply",
+    layerVisibilityPlaceholder: "0, 4, 8-12",
+    layerVisibilitySummaryCurrent: "Current",
+    layerVisibilitySummaryAll: "All layers",
+    layerVisibilitySummaryCustom: "Custom",
     thresholdSliderLabel: "Ball Tree Threshold",
     layerFocusBoxLabel: "Layer Focus",
     connectionCountLabel: "Connection count",
@@ -214,6 +232,14 @@ const cameraLabel = document.getElementById("cameraLabel");
 const cameraFocusButton = document.getElementById("cameraFocusButton");
 const cameraFreeButton = document.getElementById("cameraFreeButton");
 const layerSliderLabel = document.getElementById("layerSliderLabel");
+const layerVisibilityLabel = document.getElementById("layerVisibilityLabel");
+const layerVisibilityReadout = document.getElementById("layerVisibilityReadout");
+const visibleLayerButtons = [...document.querySelectorAll(".mode-button[data-layer-visibility]")];
+const visibleLayerCurrentButton = document.getElementById("visibleLayerCurrentButton");
+const visibleLayerAllButton = document.getElementById("visibleLayerAllButton");
+const visibleLayerCustomButton = document.getElementById("visibleLayerCustomButton");
+const layerSelectionInput = document.getElementById("layerSelectionInput");
+const applyLayerSelectionButton = document.getElementById("applyLayerSelectionButton");
 const thresholdSliderLabel = document.getElementById("thresholdSliderLabel");
 const layerFocusBoxLabel = document.getElementById("layerFocusBoxLabel");
 const connectionCountLabel = document.getElementById("connectionCountLabel");
@@ -244,8 +270,13 @@ let selectedLayer = bestLayerRow.layer;
 let hoveredPoint = null;
 let viewMode = "latent";
 let cameraMode = "focus";
+let layerVisibilityMode = "current";
 let currentLang = localStorage.getItem("llm-space-lang") === "en" ? "en" : "tr";
 const openPanels = new Set();
+const allLayers = Array.from({ length: layerMax - layerMin + 1 }, (_, index) => layerMin + index);
+let customVisibleLayers = [selectedLayer];
+let visibleLayerList = [selectedLayer];
+let visibleLayerSet = new Set(visibleLayerList);
 
 dataset.pointInstances = buildPointInstances(dataset);
 dataset.pointSizeRange = computePointSizeRange(dataset.pointInstances);
@@ -260,6 +291,7 @@ wAxisReadout.textContent = `${t("layerWord")} ${selectedLayer}`;
 varianceInfo.textContent = dataset.varianceText;
 updateWMarker(selectedLayer);
 updateWTicks();
+syncVisibleLayers();
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -338,8 +370,9 @@ const bestLayerGuide = createGuideLine(0xe5c07b, 0.22);
 bestLayerGuide.position.y = layerToY(bestLayerRow.layer);
 scene.add(bestLayerGuide);
 
-const inspectionSlice = createInspectionSlice();
-scene.add(inspectionSlice.group);
+const layerSlicePrototype = createLayerSlicePrototype();
+const layerSlicesGroup = new THREE.Group();
+scene.add(layerSlicesGroup);
 
 const activityHotspotGroup = new THREE.Group();
 activityHotspotGroup.renderOrder = 2;
@@ -377,6 +410,16 @@ window.addEventListener("resize", onResize);
 canvas.addEventListener("pointermove", onPointerMove);
 canvas.addEventListener("pointerleave", clearHover);
 layerSlider.addEventListener("input", onLayerChange);
+visibleLayerButtons.forEach((button) => {
+  button.addEventListener("click", () => setLayerVisibilityMode(button.dataset.layerVisibility));
+});
+applyLayerSelectionButton.addEventListener("click", applyCustomLayerSelection);
+layerSelectionInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    applyCustomLayerSelection();
+  }
+});
 thresholdSlider.addEventListener("input", onThresholdChange);
 legendItems.forEach((item) => {
   item.addEventListener("click", () => toggleCategory(item.dataset.category));
@@ -415,6 +458,13 @@ function animate() {
 
 function onLayerChange(event) {
   selectedLayer = Number(event.target.value);
+  if (layerVisibilityMode === "current") {
+    visibleLayerList = [selectedLayer];
+    visibleLayerSet = new Set(visibleLayerList);
+  } else if (layerVisibilityMode === "custom" && !customVisibleLayers.includes(selectedLayer)) {
+    customVisibleLayers = normalizeLayerList([...customVisibleLayers, selectedLayer]);
+  }
+  syncVisibleLayers();
   layerValue.textContent = `${selectedLayer}`;
   wAxisReadout.textContent = `${t("layerWord")} ${selectedLayer}`;
   updateWMarker(selectedLayer);
@@ -444,6 +494,7 @@ function toggleCategory(category) {
   updateLegendState();
   refreshSeparationScores();
   updateSceneGeometry();
+  updateFocusLayerVisuals();
   renderSeparationPanel();
   clearHover();
 }
@@ -545,6 +596,12 @@ function applyStaticTranslations() {
   cameraFocusButton.textContent = t("cameraFocus");
   cameraFreeButton.textContent = t("cameraFree");
   layerSliderLabel.textContent = t("layerSliderLabel");
+  layerVisibilityLabel.textContent = t("layerVisibilityLabel");
+  visibleLayerCurrentButton.textContent = t("layerVisibilityCurrent");
+  visibleLayerAllButton.textContent = t("layerVisibilityAll");
+  visibleLayerCustomButton.textContent = t("layerVisibilityCustom");
+  applyLayerSelectionButton.textContent = t("layerVisibilityApply");
+  layerSelectionInput.placeholder = t("layerVisibilityPlaceholder");
   thresholdSliderLabel.textContent = t("thresholdSliderLabel");
   layerFocusBoxLabel.textContent = t("layerFocusBoxLabel");
   connectionCountLabel.textContent = t("connectionCountLabel");
@@ -567,12 +624,78 @@ function applyStaticTranslations() {
   langButtons.forEach((button) => {
     button.setAttribute("aria-pressed", button.dataset.lang === currentLang ? "true" : "false");
   });
+  updateLayerVisibilityUi();
+}
+
+function setLayerVisibilityMode(nextMode) {
+  if (!nextMode || nextMode === layerVisibilityMode) {
+    return;
+  }
+
+  layerVisibilityMode = nextMode;
+  if (layerVisibilityMode === "custom") {
+    const parsedLayers = parseLayerSelection(layerSelectionInput.value);
+    customVisibleLayers = parsedLayers.length ? parsedLayers : [selectedLayer];
+  }
+
+  syncVisibleLayers();
+  updateSceneGeometry();
+  updateFocusLayerVisuals();
+  renderSeparationPanel();
+  clearHover();
+}
+
+function applyCustomLayerSelection() {
+  const parsedLayers = parseLayerSelection(layerSelectionInput.value);
+  customVisibleLayers = parsedLayers.length ? parsedLayers : [selectedLayer];
+  layerVisibilityMode = "custom";
+  syncVisibleLayers();
+  updateSceneGeometry();
+  updateFocusLayerVisuals();
+  renderSeparationPanel();
+  clearHover();
+}
+
+function syncVisibleLayers() {
+  if (layerVisibilityMode === "all") {
+    visibleLayerList = [...allLayers];
+  } else if (layerVisibilityMode === "custom") {
+    visibleLayerList = normalizeLayerList(customVisibleLayers.length ? customVisibleLayers : [selectedLayer]);
+  } else {
+    visibleLayerList = [selectedLayer];
+  }
+
+  visibleLayerSet = new Set(visibleLayerList);
+  layerSelectionInput.value = formatLayerSelectionString(
+    layerVisibilityMode === "custom" ? customVisibleLayers : visibleLayerList,
+  );
+  updateLayerVisibilityUi();
+}
+
+function updateLayerVisibilityUi() {
+  if (!layerVisibilityReadout) {
+    return;
+  }
+
+  const summaryLabel = layerVisibilityMode === "all"
+    ? t("layerVisibilitySummaryAll")
+    : layerVisibilityMode === "custom"
+      ? t("layerVisibilitySummaryCustom")
+      : t("layerVisibilitySummaryCurrent");
+  const layerSummary = layerVisibilityMode === "current"
+    ? `${selectedLayer}`
+    : formatLayerSelectionString(layerVisibilityMode === "custom" ? customVisibleLayers : visibleLayerList);
+
+  layerVisibilityReadout.textContent = `${summaryLabel} · ${layerSummary}`;
+  visibleLayerButtons.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.layerVisibility === layerVisibilityMode);
+  });
 }
 
 function updateSceneGeometry() {
   visiblePointInstances = dataset.pointInstances.filter((point) => (
     activeCategories.has(point.category) &&
-    point.layer === selectedLayer
+    visibleLayerSet.has(point.layer)
   ));
   spaceFrameProfile = computeSpaceFrame(visiblePointInstances);
   updatePointsGeometry();
@@ -584,16 +707,16 @@ function updateSceneGeometry() {
 function updateModeUi() {
   const latent = viewMode === "latent";
   modeReadout.textContent = latent ? t("viewLatent") : t("viewAtlas");
-  legendModeLabel.textContent = latent ? buildLatentLegendLabel(selectedLayer) : t("legendAtlas");
+  legendModeLabel.textContent = latent
+    ? (visibleLayerList.length > 1 ? t("legendLatentFallback") : buildLatentLegendLabel(selectedLayer))
+    : t("legendAtlas");
   modeButtons.forEach((button) => {
     button.classList.toggle("is-active", button.dataset.viewMode === viewMode);
   });
   categoryGuides.visible = !latent;
   categoryLabels.visible = !latent;
-  tokenTraceLines.visible = !latent;
+  tokenTraceLines.visible = !latent || visibleLayerList.length > 1;
   activityHotspotGroup.visible = !latent;
-  inspectionSlice.fill.material.opacity = latent ? 0.03 : 0.06;
-  inspectionSlice.outline.material.opacity = latent ? 0.2 : 0.34;
 }
 
 function updatePanelUi() {
@@ -696,6 +819,7 @@ function updatePointsGeometry() {
 function updateTokenTraceGeometry() {
   const linePositions = [];
   const lineColors = [];
+  const traceLayers = [...visibleLayerList].sort((left, right) => left - right);
 
   dataset.tokens.forEach((token) => {
     if (!activeCategories.has(token.category)) {
@@ -703,9 +827,12 @@ function updateTokenTraceGeometry() {
     }
 
     const color = new THREE.Color((CATEGORY_CONFIG[token.category] ?? CATEGORY_CONFIG.language).color);
-    for (let layer = layerMin; layer < layerMax; layer += 1) {
-      const current = token.layers[layer];
-      const next = token.layers[layer + 1];
+    for (let index = 0; index < traceLayers.length - 1; index += 1) {
+      const current = token.layers[traceLayers[index]];
+      const next = token.layers[traceLayers[index + 1]];
+      if (!current || !next) {
+        continue;
+      }
       const currentPosition = getLayerEntryPosition(current);
       const nextPosition = getLayerEntryPosition(next);
       linePositions.push(
@@ -722,7 +849,11 @@ function updateTokenTraceGeometry() {
 }
 
 function updateBallTreeGeometry() {
-  const layerPoints = visiblePointInstances.filter((point) => point.layer === selectedLayer);
+  const layerPoints = dataset.pointInstances.filter((point) => (
+    activeCategories.has(point.category) &&
+    point.layer === selectedLayer &&
+    visibleLayerSet.has(point.layer)
+  ));
   const effectiveThreshold = viewMode === "latent"
     ? Number(thresholdSlider.value) * 0.1
     : Number(thresholdSlider.value);
@@ -761,7 +892,7 @@ function updateBallTreeGeometry() {
 
 function updateFocusLayerVisuals() {
   focusGuide.position.y = layerToY(selectedLayer);
-  updateInspectionSlice();
+  updateLayerSlices();
   updateActivityHotspots();
   updateDesiredFocusTarget();
 }
@@ -787,7 +918,7 @@ function updateHover() {
 
   const category = CATEGORY_CONFIG[hovered.category] ?? CATEGORY_CONFIG.language;
   tooltip.classList.remove("hidden");
-  tooltip.innerHTML = `<strong>${escapeHtml(hovered.tokenText)}</strong><span>${categoryLabel(hovered.category)} - ${t("layerWord")} ${hovered.layer}</span>`;
+  tooltip.innerHTML = `<strong>${escapeHtml(formatTokenForDisplay(hovered.tokenText))}</strong><span>${categoryLabel(hovered.category)} - ${t("layerWord")} ${hovered.layer}</span>`;
 
   setHoverPanel({
     token: hovered.tokenText,
@@ -865,6 +996,13 @@ function onSeparationPanelClick(event) {
   }
 
   selectedLayer = Number(row.dataset.layer);
+  if (layerVisibilityMode === "current") {
+    visibleLayerList = [selectedLayer];
+    visibleLayerSet = new Set(visibleLayerList);
+  } else if (layerVisibilityMode === "custom" && !customVisibleLayers.includes(selectedLayer)) {
+    customVisibleLayers = normalizeLayerList([...customVisibleLayers, selectedLayer]);
+  }
+  syncVisibleLayers();
   layerSlider.value = `${selectedLayer}`;
   layerValue.textContent = `${selectedLayer}`;
   wAxisReadout.textContent = `${t("layerWord")} ${selectedLayer}`;
@@ -1005,13 +1143,13 @@ function setHoverPanel(payload) {
   const attentionBlock = payload.attention
     ? `
       <p><strong>${t("qkSummary")}:</strong> mean=${payload.attention.scoreMean.toFixed(2)}, min=${payload.attention.scoreMin.toFixed(2)}, max=${payload.attention.scoreMax.toFixed(2)}</p>
-      <p><strong>${t("topKeys")}:</strong> ${payload.attention.topKeys.map((item) => `${escapeHtml(item.token)}@${item.position}`).join(", ") || "-"}</p>
+      <p><strong>${t("topKeys")}:</strong> ${payload.attention.topKeys.map((item) => `${escapeHtml(formatTokenForDisplay(item.token))}@${item.position}`).join(", ") || "-"}</p>
     `
     : "";
 
   hoverPanel.innerHTML = `
     <div class="hover-card-header">
-      <div><p class="hover-token">${escapeHtml(payload.token)}</p></div>
+      <div><p class="hover-token">${escapeHtml(formatTokenForDisplay(payload.token))}</p></div>
       <span class="hover-category ${payload.category}">${categoryLabel(payload.category)}</span>
     </div>
     <div class="hover-grid">
@@ -1209,33 +1347,40 @@ function createGlowTexture() {
   return new THREE.CanvasTexture(spriteCanvas);
 }
 
-function createInspectionSlice() {
-  const shape = createRoundedRectShape(12.8, 3.2, 0.48);
+function createLayerSlicePrototype() {
+  const shape = createRoundedRectShape(1, 1, 0.14);
   const fillGeometry = new THREE.ShapeGeometry(shape);
   fillGeometry.rotateX(-Math.PI / 2);
+  const outlineGeometry = new THREE.BufferGeometry().setFromPoints(
+    shape.getPoints(48).map((point) => new THREE.Vector3(point.x, 0, point.y)),
+  );
+
+  return { fillGeometry, outlineGeometry };
+}
+
+function createLayerSlice({ layer, selected }) {
   const fill = new THREE.Mesh(
-    fillGeometry,
+    layerSlicePrototype.fillGeometry,
     new THREE.MeshBasicMaterial({
-      color: 0x7bd6ff,
+      color: selected ? 0x7bd6ff : 0xe7eef8,
       transparent: true,
-      opacity: 0.06,
+      opacity: selected ? 0.08 : 0.032,
       depthWrite: false,
     }),
   );
 
-  const outlineGeometry = new THREE.BufferGeometry().setFromPoints(
-    shape.getPoints(48).map((point) => new THREE.Vector3(point.x, 0, point.y)),
-  );
   const outline = new THREE.LineLoop(
-    outlineGeometry,
+    layerSlicePrototype.outlineGeometry,
     new THREE.LineBasicMaterial({
-      color: 0x9fdcff,
+      color: selected ? 0xa7e2ff : 0xbccddd,
       transparent: true,
-      opacity: 0.34,
+      opacity: selected ? 0.4 : 0.18,
     }),
   );
 
   const group = new THREE.Group();
+  group.position.y = layerToY(layer) - 0.022;
+  group.renderOrder = selected ? 1 : 0;
   group.add(fill);
   group.add(outline);
 
@@ -1431,18 +1576,50 @@ function refreshSeparationScores() {
   spaceFrameProfile = computeSpaceFrame(dataset.pointInstances, activeCategories);
 }
 
-function updateInspectionSlice() {
-  inspectionSlice.group.position.set(spaceFrameProfile.centerX, layerToY(selectedLayer), spaceFrameProfile.centerZ);
-  inspectionSlice.group.scale.set(spaceFrameProfile.width, 1, spaceFrameProfile.depth);
+function updateLayerSlices() {
+  while (layerSlicesGroup.children.length) {
+    const [child] = layerSlicesGroup.children;
+    child.traverse((node) => {
+      if (node.material) {
+        if (Array.isArray(node.material)) {
+          node.material.forEach((material) => material.dispose());
+        } else {
+          node.material.dispose();
+        }
+      }
+    });
+    layerSlicesGroup.remove(child);
+  }
+
+  visibleLayerList.forEach((layer) => {
+    const layerPoints = dataset.pointInstances.filter((point) => (
+      activeCategories.has(point.category) &&
+      point.layer === layer
+    ));
+    const layerFrame = computeSpaceFrame(layerPoints);
+    const slice = createLayerSlice({ layer, selected: layer === selectedLayer });
+    slice.group.position.x = layerFrame.centerX;
+    slice.group.position.z = layerFrame.centerZ;
+    slice.group.scale.set(layerFrame.width, 1, layerFrame.depth);
+    layerSlicesGroup.add(slice.group);
+  });
 }
 
 function updateDesiredFocusTarget() {
   desiredFocusTarget.set(
     spaceFrameProfile.centerX,
-    layerToY(selectedLayer) + 0.18,
+    spaceFrameProfile.centerY,
     spaceFrameProfile.centerZ,
   );
-  desiredFocusDistance = Math.min(Math.max(spaceFrameProfile.width * 0.95, 5.2), 8.4);
+  desiredFocusDistance = THREE.MathUtils.clamp(
+    Math.max(
+      spaceFrameProfile.width * 0.96,
+      spaceFrameProfile.depth * 1.28,
+      spaceFrameProfile.height * 0.72 + 3.4,
+    ),
+    5.2,
+    15.5,
+  );
   if (cameraMode === "focus") {
     focusAnimation = 1;
   }
@@ -1560,8 +1737,12 @@ function computeSpaceFrame(pointInstances, enabledCategories) {
   if (!visiblePoints.length) {
     return {
       centerX: 5.4,
+      centerY: layerToY(selectedLayer),
       centerZ: 0,
+      minY: layerToY(selectedLayer),
+      maxY: layerToY(selectedLayer),
       width: 1,
+      height: 1,
       depth: 1,
       shapeLabel: t("shape_empty"),
     };
@@ -1569,22 +1750,100 @@ function computeSpaceFrame(pointInstances, enabledCategories) {
 
   const positions = visiblePoints.map((point) => getPointPosition(point));
   const xs = positions.map((position) => position[0]);
+  const ys = positions.map((position) => position[1]);
   const zs = positions.map((position) => position[2]);
   const minX = Math.min(...xs);
   const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
   const minZ = Math.min(...zs);
   const maxZ = Math.max(...zs);
   const width = Math.max(1.2, maxX - minX + 1.1);
+  const height = Math.max(1, maxY - minY + 0.8);
   const depth = Math.max(1.1, maxZ - minZ + 0.7);
   const aspect = width / Math.max(depth, 0.001);
 
   return {
     centerX: (minX + maxX) / 2,
+    centerY: (minY + maxY) / 2,
     centerZ: (minZ + maxZ) / 2,
+    minY,
+    maxY,
     width,
+    height,
     depth,
     shapeLabel: aspect > 3 ? t("shape_wide_rect") : aspect > 1.5 ? t("shape_round_rect") : t("shape_roundish"),
   };
+}
+
+function parseLayerSelection(rawValue) {
+  const trimmed = `${rawValue ?? ""}`.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  if (trimmed.toLowerCase() === "all") {
+    return [...allLayers];
+  }
+
+  const resolvedLayers = [];
+  const segments = trimmed.split(",");
+  segments.forEach((segment) => {
+    const part = segment.trim();
+    if (!part) {
+      return;
+    }
+
+    const rangeMatch = part.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (rangeMatch) {
+      const start = Number(rangeMatch[1]);
+      const end = Number(rangeMatch[2]);
+      const low = Math.max(layerMin, Math.min(start, end));
+      const high = Math.min(layerMax, Math.max(start, end));
+      for (let layer = low; layer <= high; layer += 1) {
+        resolvedLayers.push(layer);
+      }
+      return;
+    }
+
+    const value = Number(part);
+    if (Number.isInteger(value) && value >= layerMin && value <= layerMax) {
+      resolvedLayers.push(value);
+    }
+  });
+
+  return normalizeLayerList(resolvedLayers);
+}
+
+function normalizeLayerList(layers) {
+  return [...new Set(layers.filter((layer) => Number.isInteger(layer) && layer >= layerMin && layer <= layerMax))]
+    .sort((left, right) => left - right);
+}
+
+function formatLayerSelectionString(layers) {
+  const normalized = normalizeLayerList(layers);
+  if (!normalized.length) {
+    return `${selectedLayer}`;
+  }
+
+  const ranges = [];
+  let start = normalized[0];
+  let previous = normalized[0];
+
+  for (let index = 1; index < normalized.length; index += 1) {
+    const current = normalized[index];
+    if (current === previous + 1) {
+      previous = current;
+      continue;
+    }
+
+    ranges.push(start === previous ? `${start}` : `${start}-${previous}`);
+    start = current;
+    previous = current;
+  }
+
+  ranges.push(start === previous ? `${start}` : `${start}-${previous}`);
+  return ranges.join(", ");
 }
 
 function computeRadiusEdges(pointsAtLayer, threshold) {
@@ -2116,4 +2375,17 @@ function escapeHtml(value) {
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
+}
+
+function formatTokenForDisplay(value) {
+  const text = String(value ?? "");
+  const normalized = text
+    .replaceAll("Ä ", "Ġ")
+    .replaceAll("Ğ", "Ġ");
+
+  if (normalized.startsWith("Ġ")) {
+    return `␠${normalized.slice(1)}`;
+  }
+
+  return normalized;
 }
