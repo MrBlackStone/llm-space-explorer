@@ -8,6 +8,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -33,6 +34,7 @@ CLASSIFIER_SYSTEM_PROMPT = (
 )
 VALID_CATEGORIES = ("math", "language", "code", "logic")
 TOP_ATTENTION_KEYS = 3
+DEFAULT_PROJECTION = "pca"
 
 def build_prompt_bank() -> list[dict]:
     math_subjects = [
@@ -196,6 +198,18 @@ def parse_args() -> argparse.Namespace:
         "--dry-run",
         action="store_true",
         help="Resolve model path and layer taps without loading model weights.",
+    )
+    parser.add_argument(
+        "--projection",
+        type=str,
+        default=DEFAULT_PROJECTION,
+        choices=["pca", "umap"],
+        help="Low-dimensional projection method to export. Default: pca",
+    )
+    parser.add_argument(
+        "--no-whiten",
+        action="store_true",
+        help="Disable covariance-diagonal whitening before projection.",
     )
     return parser.parse_args()
 
@@ -532,7 +546,7 @@ def collect_prompt_runs(
     return prompt_runs
 
 
-def build_projection(raw_vectors: list[torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor, list[float]]:
+def prepare_projection_matrix(raw_vectors: list[torch.Tensor], whiten: bool) -> tuple[torch.Tensor, dict[str, Any]]:
     matrix = torch.nan_to_num(
         torch.stack(raw_vectors, dim=0).to(torch.float32),
         nan=0.0,
@@ -541,13 +555,36 @@ def build_projection(raw_vectors: list[torch.Tensor]) -> tuple[torch.Tensor, tor
     )
     centered = matrix - matrix.mean(dim=0, keepdim=True)
     centered = torch.nan_to_num(centered, nan=0.0, posinf=1e4, neginf=-1e4)
-    _, singular_values, vh = torch.linalg.svd(centered, full_matrices=False)
+    stats: dict[str, Any] = {
+        "mode": "none",
+        "epsilon": 0.0,
+    }
+
+    if not whiten:
+        return centered, stats
+
+    denom = max(centered.shape[0] - 1, 1)
+    diagonal_variance = torch.sum(centered * centered, dim=0) / denom
+    epsilon = 1e-6
+    scaling = torch.rsqrt(torch.clamp(diagonal_variance, min=epsilon))
+    whitened = centered * scaling
+    whitened = torch.nan_to_num(whitened, nan=0.0, posinf=1e4, neginf=-1e4)
+    stats = {
+        "mode": "covariance_diagonal",
+        "epsilon": epsilon,
+        "feature_variance_mean": round(float(diagonal_variance.mean().item()), 6),
+    }
+    return whitened, stats
+
+
+def compute_pca_summary(matrix: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, list[float]]:
+    _, singular_values, vh = torch.linalg.svd(matrix, full_matrices=False)
 
     pca_axes = vh[:3]
     svd_axes = vh[: min(6, vh.shape[0])]
-    pca_coords = centered @ pca_axes.T
+    pca_coords = matrix @ pca_axes.T
 
-    denom = max(centered.shape[0] - 1, 1)
+    denom = max(matrix.shape[0] - 1, 1)
     variances = (singular_values ** 2) / denom
     variance_total = float(variances.sum().item()) if variances.numel() else 1.0
     variance_ratio = [
@@ -555,6 +592,47 @@ def build_projection(raw_vectors: list[torch.Tensor]) -> tuple[torch.Tensor, tor
         for i in range(3)
     ]
     return pca_coords, svd_axes, variance_ratio
+
+
+def compute_umap_projection(matrix: torch.Tensor) -> torch.Tensor:
+    try:
+        import umap
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            "UMAP projection requested but 'umap-learn' is not installed. "
+            "Install it in the active environment with: pip install umap-learn"
+        ) from exc
+
+    reducer = umap.UMAP(
+        n_components=3,
+        n_neighbors=18,
+        min_dist=0.08,
+        metric="cosine",
+        random_state=42,
+        transform_seed=42,
+    )
+    coords = reducer.fit_transform(matrix.detach().cpu().numpy())
+    return torch.from_numpy(coords).to(torch.float32)
+
+
+def build_projection(
+    raw_vectors: list[torch.Tensor],
+    projection_mode: str,
+    whiten: bool,
+) -> tuple[torch.Tensor, torch.Tensor, list[float], dict[str, Any]]:
+    projection_matrix, whitening_stats = prepare_projection_matrix(raw_vectors, whiten=whiten)
+    pca_coords, svd_axes, variance_ratio = compute_pca_summary(projection_matrix)
+
+    if projection_mode == "umap":
+        coords = compute_umap_projection(projection_matrix)
+    else:
+        coords = pca_coords
+
+    metadata = {
+        "projection_method": projection_mode,
+        "whitening": whitening_stats,
+    }
+    return coords, svd_axes, variance_ratio, metadata
 
 
 def normalize_pca(coords: torch.Tensor, radius: float = 6.2) -> torch.Tensor:
@@ -591,6 +669,86 @@ def build_attention_summary(
     }
 
 
+def build_category_similarity_metadata(
+    prompt_runs: list[PromptRun],
+    sampled_layers: list[int],
+    special_token_ids: set[int],
+) -> dict:
+    if not prompt_runs or not sampled_layers:
+        return {
+            "categories": list(VALID_CATEGORIES),
+            "metric": "average_pairwise_cosine_similarity",
+            "token_filter": "non_special_tokens",
+            "diagonal": "within_category_excluding_self",
+            "off_diagonal": "cross_category_average",
+            "by_layer": {},
+        }
+
+    hidden_size = int(prompt_runs[0].sampled_hidden[sampled_layers[0]].shape[-1])
+    sums = {
+        layer_idx: {
+            category: torch.zeros(hidden_size, dtype=torch.float64)
+            for category in VALID_CATEGORIES
+        }
+        for layer_idx in sampled_layers
+    }
+    counts = {
+        layer_idx: {category: 0 for category in VALID_CATEGORIES}
+        for layer_idx in sampled_layers
+    }
+
+    for prompt_run in prompt_runs:
+        keep_positions = [
+            position
+            for position, token_id in enumerate(prompt_run.token_ids)
+            if token_id not in special_token_ids
+        ]
+        if not keep_positions:
+            continue
+
+        for layer_idx in sampled_layers:
+            hidden = prompt_run.sampled_hidden[layer_idx][keep_positions]
+            hidden = torch.nan_to_num(hidden.to(torch.float32), nan=0.0, posinf=1e4, neginf=-1e4)
+            norms = hidden.norm(dim=1, keepdim=True).clamp_min(1e-12)
+            normalized = (hidden / norms).to(torch.float64)
+            sums[layer_idx][prompt_run.category] += normalized.sum(dim=0)
+            counts[layer_idx][prompt_run.category] += int(normalized.shape[0])
+
+    by_layer = {}
+    for layer_idx in sampled_layers:
+        matrix = []
+        for row_category in VALID_CATEGORIES:
+            row = []
+            row_sum = sums[layer_idx][row_category]
+            row_count = counts[layer_idx][row_category]
+            for col_category in VALID_CATEGORIES:
+                col_sum = sums[layer_idx][col_category]
+                col_count = counts[layer_idx][col_category]
+                value = None
+                if row_category == col_category:
+                    if row_count >= 2:
+                        value = (torch.dot(row_sum, row_sum).item() - row_count) / (row_count * (row_count - 1))
+                elif row_count and col_count:
+                    value = torch.dot(row_sum, col_sum).item() / (row_count * col_count)
+
+                row.append(None if value is None else round(float(max(-1.0, min(1.0, value))), 6))
+            matrix.append(row)
+
+        by_layer[str(layer_idx)] = {
+            "matrix": matrix,
+            "counts": {category: int(counts[layer_idx][category]) for category in VALID_CATEGORIES},
+        }
+
+    return {
+        "categories": list(VALID_CATEGORIES),
+        "metric": "average_pairwise_cosine_similarity",
+        "token_filter": "non_special_tokens",
+        "diagonal": "within_category_excluding_self",
+        "off_diagonal": "cross_category_average",
+        "by_layer": by_layer,
+    }
+
+
 def build_export(
     prompt_runs: list[PromptRun],
     requested_layers: list[int],
@@ -598,6 +756,9 @@ def build_export(
     layer_notes: list[dict],
     model_dir: str,
     config,
+    projection_mode: str,
+    whiten: bool,
+    special_token_ids: set[int],
 ) -> dict:
     raw_vectors: list[torch.Tensor] = []
     sample_index_map: OrderedDict[tuple[int, int, int], int] = OrderedDict()
@@ -609,8 +770,12 @@ def build_export(
                 sample_index_map[(prompt_run.prompt_index, position, layer_idx)] = len(raw_vectors)
                 raw_vectors.append(prompt_run.sampled_hidden[layer_idx][position])
 
-    pca_coords, svd_axes, variance_ratio = build_projection(raw_vectors)
-    normalized_pca = normalize_pca(pca_coords)
+    projection_coords, svd_axes, variance_ratio, projection_metadata = build_projection(
+        raw_vectors,
+        projection_mode=projection_mode,
+        whiten=whiten,
+    )
+    normalized_projection = normalize_pca(projection_coords)
 
     tokens_export = []
     for prompt_run in prompt_runs:
@@ -634,7 +799,8 @@ def build_export(
                 )[:3]
 
                 token_layers[str(layer_idx)] = {
-                    "pca": [round(float(value), 6) for value in normalized_pca[sample_index].tolist()],
+                    "projection": [round(float(value), 6) for value in normalized_projection[sample_index].tolist()],
+                    "pca": [round(float(value), 6) for value in normalized_projection[sample_index].tolist()],
                     "svd": top_components,
                     "attention": build_attention_summary(
                         prompt_run.qk_scores.get(layer_idx),
@@ -696,6 +862,13 @@ def build_export(
             "prompt_count": len(prompt_runs),
             "token_count": len(tokens_export),
             "classification_system_prompt": CLASSIFIER_SYSTEM_PROMPT,
+            "projection_method": projection_metadata["projection_method"],
+            "whitening": projection_metadata["whitening"],
+            "category_similarity": build_category_similarity_metadata(
+                prompt_runs=prompt_runs,
+                sampled_layers=sampled_layers,
+                special_token_ids=special_token_ids,
+            ),
             "variance_ratio": [round(value, 6) for value in variance_ratio],
             "variance_text": " / ".join(f"{value * 100:.1f}%" for value in variance_ratio),
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -724,6 +897,7 @@ def main() -> None:
     model_dir = args.model_dir or discover_model_dir()
     device = resolve_device(args.device)
     dtype = resolve_dtype(args.dtype)
+    whiten = not args.no_whiten
     if dtype is None:
         dtype = torch.float16 if device == "cuda" else torch.float32
 
@@ -741,6 +915,8 @@ def main() -> None:
             "sampled_decoder_layers": sampled_layers,
             "layer_resolution_notes": layer_notes,
             "prompt_count": len(raw_prompts),
+            "projection": args.projection,
+            "whiten": whiten,
             "output": str(args.output),
         }
         print(json.dumps(dry_run_info, ensure_ascii=False, indent=2))
@@ -779,6 +955,9 @@ def main() -> None:
         layer_notes=layer_notes,
         model_dir=model_dir,
         config=config,
+        projection_mode=args.projection,
+        whiten=whiten,
+        special_token_ids=set(getattr(tokenizer, "all_special_ids", []) or []),
     )
     write_export(args.output, export_payload)
 

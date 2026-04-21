@@ -18,6 +18,10 @@ const HOVER_PIXEL_RADIUS = 18;
 const GUIDE_MIN_X = 0.3;
 const GUIDE_MAX_X = 5.75;
 const VIEW_TARGET = new THREE.Vector3(3.0, 0.15, 0);
+const DATASET_FILE_BY_PROJECTION = {
+  pca: "./hidden_states.json",
+  umap: "./hidden_states_umap.json",
+};
 let dataLayerMin = DEFAULT_LAYER_MIN;
 let dataLayerMax = DEFAULT_LAYER_MAX;
 
@@ -31,10 +35,15 @@ const CATEGORY_CONFIG = {
 const TRANSLATIONS = {
   tr: {
     headerSubtitle: "Panel toggles",
+    projectionPca: "PCA",
+    projectionUmap: "UMAP",
+    tabSpace: "Uzay",
+    tabHeatmap: "Heatmap",
     panelAbout: "Hakkinda",
     panelControls: "Kontroller",
     panelLegend: "Lejant",
     panelAnalysis: "Analiz",
+    panelSimilarity: "Benzerlik",
     panelHover: "Detay",
     heroLede: "Varsayilan gorunum true latent modunda secili katmani PCA duzleminde aciyor. Atlas gorunumu istersen geri donebilir, katmanlar arasi izleri ve yakinlik cizgilerini ayni sahnede inceleyebilirsin.",
     datasetLoading: "Veri yukleniyor",
@@ -74,16 +83,29 @@ const TRANSLATIONS = {
     legendLogicDesc: "Mor nokta bulutu",
     hoverEmpty: "Bir tokenin ustune gelince token metni, katman ve aktif SVD bilesenleri burada gorunecek.",
     separationEmpty: "Katman bazli ayrisma skoru burada gorunecek.",
+    similarityEmpty: "Katman bazli kategori benzerlik isi haritasi burada gorunecek.",
     layerWord: "Katman",
     positionWord: "Pozisyon",
     activationStrength: "Aktivasyon siddeti",
     pcaPosition: "PCA konumu",
+    umapPosition: "UMAP konumu",
     promptWord: "Prompt",
     activeSvd: "Aktif SVD bilesenleri",
     qkSummary: "QK skor ozeti",
     topKeys: "Top anahtarlar",
     separationTitle: "Katman Ayrisma Skoru",
     separationDescription: "Kategoriler arasi ortalama mesafe. En yuksek skor router icin en net ayrisan katman.",
+    similarityTitle: "Kategori Cosine Similarity",
+    similarityDescription: "Kosegen kategori ici, diger hucreler kategoriler arasi ortalama cosine similarity degerlerini gosterir.",
+    heatmapLayerLabel: "Heatmap katmani",
+    similarityLow: "Dusuk",
+    similarityHigh: "Yuksek",
+    similarityWithin: "Kategori ici ortalama",
+    similarityBetween: "Kategoriler arasi ortalama",
+    similarityWithinShort: "ici",
+    similarityCrossShort: "arasi",
+    similarityLayerBadge: "Heatmap L{layer}",
+    similarityUnavailable: "Bu export dosyasinda heatmap verisi yok.",
     bestLayerShort: "Best L{layer}",
     spaceFrame: "Uzay cercevesi",
     activeRegion: "Aktif bolge",
@@ -103,10 +125,15 @@ const TRANSLATIONS = {
   },
   en: {
     headerSubtitle: "Panel toggles",
+    projectionPca: "PCA",
+    projectionUmap: "UMAP",
+    tabSpace: "Space",
+    tabHeatmap: "Heatmap",
     panelAbout: "About",
     panelControls: "Controls",
     panelLegend: "Legend",
     panelAnalysis: "Analysis",
+    panelSimilarity: "Similarity",
     panelHover: "Hover",
     heroLede: "The default view opens the selected layer in true latent mode on the PCA plane. You can switch back to atlas mode and inspect cross-layer traces and neighborhood links in the same scene.",
     datasetLoading: "Loading data",
@@ -146,16 +173,29 @@ const TRANSLATIONS = {
     legendLogicDesc: "Pink point cloud",
     hoverEmpty: "When you hover a token, its text, layer, and active SVD components will appear here.",
     separationEmpty: "Layer-wise separation score will appear here.",
+    similarityEmpty: "Layer-wise category similarity heatmap will appear here.",
     layerWord: "Layer",
     positionWord: "Position",
     activationStrength: "Activation strength",
     pcaPosition: "PCA position",
+    umapPosition: "UMAP position",
     promptWord: "Prompt",
     activeSvd: "Active SVD components",
     qkSummary: "QK score summary",
     topKeys: "Top keys",
     separationTitle: "Layer Separation Score",
     separationDescription: "Average distance between categories. The highest score marks the clearest layer for routing.",
+    similarityTitle: "Category Cosine Similarity",
+    similarityDescription: "The diagonal shows within-category similarity, while off-diagonal cells show cross-category average cosine similarity.",
+    heatmapLayerLabel: "Heatmap layer",
+    similarityLow: "Low",
+    similarityHigh: "High",
+    similarityWithin: "Within-category average",
+    similarityBetween: "Cross-category average",
+    similarityWithinShort: "within",
+    similarityCrossShort: "cross",
+    similarityLayerBadge: "Heatmap L{layer}",
+    similarityUnavailable: "This export does not include heatmap data.",
     bestLayerShort: "Best L{layer}",
     spaceFrame: "Space frame",
     activeRegion: "Active region",
@@ -199,6 +239,7 @@ const varianceInfo = document.getElementById("varianceInfo");
 const edgeCount = document.getElementById("edgeCount");
 const hoverPanel = document.getElementById("hoverPanel");
 const separationPanel = document.getElementById("separationPanel");
+const similarityPanel = document.getElementById("similarityPanel");
 const tooltip = document.getElementById("tooltip");
 const wMarker = document.getElementById("wMarker");
 const wTicks = [...document.querySelectorAll(".w-tick")];
@@ -207,6 +248,7 @@ const modeButtons = [...document.querySelectorAll(".mode-button[data-view-mode]"
 const cameraModeButtons = [...document.querySelectorAll(".mode-button[data-camera-mode]")];
 const headerButtons = [...document.querySelectorAll(".header-button[data-panel-target]")];
 const langButtons = [...document.querySelectorAll(".header-button[data-lang]")];
+const projectionSourceButtons = [...document.querySelectorAll(".header-button[data-projection-source]")];
 const canvas = document.getElementById("scene");
 const tokenCountChip = document.getElementById("tokenCountChip");
 const layerRangeChip = document.getElementById("layerRangeChip");
@@ -219,6 +261,9 @@ const heroPanel = document.getElementById("heroPanel");
 const controlsPanel = document.getElementById("controlsPanel");
 const legendPanel = document.getElementById("legendPanel");
 const headerSubtitle = document.getElementById("headerSubtitle");
+const projectionPcaButton = document.getElementById("projectionPcaButton");
+const projectionUmapButton = document.getElementById("projectionUmapButton");
+const projectionHeatmapButton = document.getElementById("projectionHeatmapButton");
 const panelAboutButton = document.getElementById("panelAboutButton");
 const panelControlsButton = document.getElementById("panelControlsButton");
 const panelLegendButton = document.getElementById("panelLegendButton");
@@ -258,7 +303,9 @@ const legendLogicLabel = document.getElementById("legendLogicLabel");
 const legendLogicDesc = document.getElementById("legendLogicDesc");
 const hoverEmpty = document.getElementById("hoverEmpty");
 const separationEmpty = document.getElementById("separationEmpty");
+const similarityEmpty = document.getElementById("similarityEmpty");
 
+let currentProjectionSource = localStorage.getItem("llm-space-projection-source") === "umap" ? "umap" : "pca";
 const dataset = await loadDataset();
 dataset.latentBoundsByLayer = computeLayerLatentBounds(dataset.tokens);
 const layerMin = dataset.layerMin;
@@ -272,6 +319,7 @@ let viewMode = "latent";
 let cameraMode = "focus";
 let layerVisibilityMode = "current";
 let currentLang = localStorage.getItem("llm-space-lang") === "en" ? "en" : "tr";
+let currentAppMode = localStorage.getItem("llm-space-app-mode") === "heatmap" ? "heatmap" : "space";
 const openPanels = new Set();
 const allLayers = Array.from({ length: layerMax - layerMin + 1 }, (_, index) => layerMin + index);
 let customVisibleLayers = [selectedLayer];
@@ -378,6 +426,10 @@ const activityHotspotGroup = new THREE.Group();
 activityHotspotGroup.renderOrder = 2;
 scene.add(activityHotspotGroup);
 
+const heatmapSceneGroup = new THREE.Group();
+heatmapSceneGroup.renderOrder = 5;
+scene.add(heatmapSceneGroup);
+
 const selectionRing = new THREE.Sprite(
   new THREE.SpriteMaterial({
     map: createRingSprite(),
@@ -398,12 +450,14 @@ const projectedVector = new THREE.Vector3();
 
 let visiblePointInstances = [];
 applyStaticTranslations();
+updateAppModeUi();
 updateModeUi();
 updateCameraModeUi();
 updatePanelUi();
 updateSceneGeometry();
 updateFocusLayerVisuals();
 renderSeparationPanel();
+renderSimilarityPanel();
 setHoverPanel(null);
 
 window.addEventListener("resize", onResize);
@@ -439,10 +493,15 @@ cameraModeButtons.forEach((button) => {
 langButtons.forEach((button) => {
   button.addEventListener("click", () => setLanguage(button.dataset.lang));
 });
+projectionSourceButtons.forEach((button) => {
+  button.addEventListener("click", () => setProjectionSource(button.dataset.projectionSource));
+});
+projectionHeatmapButton.addEventListener("click", () => setAppMode("heatmap"));
 headerButtons.forEach((button) => {
   button.addEventListener("click", () => togglePanel(button.dataset.panelTarget));
 });
 separationPanel.addEventListener("click", onSeparationPanelClick);
+similarityPanel.addEventListener("input", onSimilarityPanelInput);
 
 requestAnimationFrame(animate);
 
@@ -456,8 +515,8 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-function onLayerChange(event) {
-  selectedLayer = Number(event.target.value);
+function applySelectedLayer(nextLayer) {
+  selectedLayer = Number(nextLayer);
   if (layerVisibilityMode === "current") {
     visibleLayerList = [selectedLayer];
     visibleLayerSet = new Set(visibleLayerList);
@@ -465,6 +524,7 @@ function onLayerChange(event) {
     customVisibleLayers = normalizeLayerList([...customVisibleLayers, selectedLayer]);
   }
   syncVisibleLayers();
+  layerSlider.value = `${selectedLayer}`;
   layerValue.textContent = `${selectedLayer}`;
   wAxisReadout.textContent = `${t("layerWord")} ${selectedLayer}`;
   updateWMarker(selectedLayer);
@@ -472,6 +532,11 @@ function onLayerChange(event) {
   updateSceneGeometry();
   updateFocusLayerVisuals();
   renderSeparationPanel();
+  renderSimilarityPanel();
+}
+
+function onLayerChange(event) {
+  applySelectedLayer(event.target.value);
   clearHover();
 }
 
@@ -496,6 +561,7 @@ function toggleCategory(category) {
   updateSceneGeometry();
   updateFocusLayerVisuals();
   renderSeparationPanel();
+  renderSimilarityPanel();
   clearHover();
 }
 
@@ -511,6 +577,7 @@ function setLanguage(nextLang) {
   updateModeUi();
   updateCameraModeUi();
   renderSeparationPanel();
+  renderSimilarityPanel();
   setHoverPanel(hoveredPoint ? {
     token: hoveredPoint.tokenText,
     category: hoveredPoint.category,
@@ -524,6 +591,50 @@ function setLanguage(nextLang) {
   } : null);
 }
 
+function setProjectionSource(nextSource) {
+  if (!nextSource || !DATASET_FILE_BY_PROJECTION[nextSource]) {
+    return;
+  }
+
+  const sourceChanged = nextSource !== currentProjectionSource;
+  const modeChanged = currentAppMode !== "space";
+  currentProjectionSource = nextSource;
+  currentAppMode = "space";
+  localStorage.setItem("llm-space-projection-source", currentProjectionSource);
+  localStorage.setItem("llm-space-app-mode", currentAppMode);
+
+  if (sourceChanged) {
+    window.location.reload();
+    return;
+  }
+
+  if (modeChanged) {
+    applyStaticTranslations();
+    updateAppModeUi();
+    updatePanelUi();
+    updateSceneGeometry();
+    updateFocusLayerVisuals();
+    renderSimilarityPanel();
+    clearHover();
+  }
+}
+
+function setAppMode(nextMode) {
+  if (!nextMode || nextMode === currentAppMode || !["space", "heatmap"].includes(nextMode)) {
+    return;
+  }
+
+  currentAppMode = nextMode;
+  localStorage.setItem("llm-space-app-mode", currentAppMode);
+  applyStaticTranslations();
+  updateAppModeUi();
+  updatePanelUi();
+  updateSceneGeometry();
+  updateFocusLayerVisuals();
+  renderSimilarityPanel();
+  clearHover();
+}
+
 function setViewMode(nextMode) {
   if (!nextMode || nextMode === viewMode) {
     return;
@@ -534,6 +645,7 @@ function setViewMode(nextMode) {
   updateSceneGeometry();
   updateFocusLayerVisuals();
   renderSeparationPanel();
+  renderSimilarityPanel();
   clearHover();
 }
 
@@ -577,9 +689,32 @@ function categoryLabel(category) {
   return t(`category_${category}`);
 }
 
+function updateAppModeUi() {
+  const heatmap = currentAppMode === "heatmap";
+  document.body.classList.toggle("app-mode-heatmap", heatmap);
+  document.body.classList.toggle("app-mode-space", !heatmap);
+
+  horizontalGuides.visible = !heatmap;
+  categoryGuides.visible = !heatmap && viewMode !== "latent";
+  categoryLabels.visible = !heatmap && viewMode !== "latent";
+  layerLabels.visible = !heatmap;
+  points.visible = !heatmap;
+  tokenTraceLines.visible = !heatmap && (viewMode !== "latent" || visibleLayerList.length > 1);
+  ballLines.visible = !heatmap;
+  focusGuide.visible = !heatmap;
+  bestLayerGuide.visible = !heatmap;
+  layerSlicesGroup.visible = !heatmap;
+  activityHotspotGroup.visible = !heatmap && viewMode !== "latent";
+  selectionRing.visible = !heatmap && selectionRing.visible;
+  heatmapSceneGroup.visible = false;
+}
+
 function applyStaticTranslations() {
   document.documentElement.lang = currentLang;
-  headerSubtitle.textContent = t("headerSubtitle");
+  headerSubtitle.textContent = `${t(currentAppMode === "heatmap" ? "tabHeatmap" : "tabSpace")} · ${currentProjectionSource.toUpperCase()}`;
+  projectionPcaButton.textContent = t("projectionPca");
+  projectionUmapButton.textContent = t("projectionUmap");
+  projectionHeatmapButton.textContent = t("tabHeatmap");
   panelAboutButton.textContent = t("panelAbout");
   panelControlsButton.textContent = t("panelControls");
   panelLegendButton.textContent = t("panelLegend");
@@ -620,10 +755,14 @@ function applyStaticTranslations() {
   legendLogicDesc.textContent = t("legendLogicDesc");
   hoverEmpty.textContent = t("hoverEmpty");
   separationEmpty.textContent = t("separationEmpty");
+  similarityEmpty.textContent = t("similarityEmpty");
   wAxisReadout.textContent = `${t("layerWord")} ${selectedLayer}`;
   langButtons.forEach((button) => {
     button.setAttribute("aria-pressed", button.dataset.lang === currentLang ? "true" : "false");
   });
+  projectionPcaButton.setAttribute("aria-pressed", currentAppMode === "space" && currentProjectionSource === "pca" ? "true" : "false");
+  projectionUmapButton.setAttribute("aria-pressed", currentAppMode === "space" && currentProjectionSource === "umap" ? "true" : "false");
+  projectionHeatmapButton.setAttribute("aria-pressed", currentAppMode === "heatmap" ? "true" : "false");
   updateLayerVisibilityUi();
 }
 
@@ -642,6 +781,7 @@ function setLayerVisibilityMode(nextMode) {
   updateSceneGeometry();
   updateFocusLayerVisuals();
   renderSeparationPanel();
+  renderSimilarityPanel();
   clearHover();
 }
 
@@ -653,6 +793,7 @@ function applyCustomLayerSelection() {
   updateSceneGeometry();
   updateFocusLayerVisuals();
   renderSeparationPanel();
+  renderSimilarityPanel();
   clearHover();
 }
 
@@ -702,6 +843,7 @@ function updateSceneGeometry() {
   updateTokenTraceGeometry();
   updateBallTreeGeometry();
   updateLegendState();
+  updateHeatmapScene();
 }
 
 function updateModeUi() {
@@ -713,10 +855,12 @@ function updateModeUi() {
   modeButtons.forEach((button) => {
     button.classList.toggle("is-active", button.dataset.viewMode === viewMode);
   });
-  categoryGuides.visible = !latent;
-  categoryLabels.visible = !latent;
-  tokenTraceLines.visible = !latent || visibleLayerList.length > 1;
-  activityHotspotGroup.visible = !latent;
+  if (currentAppMode !== "heatmap") {
+    categoryGuides.visible = !latent;
+    categoryLabels.visible = !latent;
+    tokenTraceLines.visible = !latent || visibleLayerList.length > 1;
+    activityHotspotGroup.visible = !latent;
+  }
 }
 
 function updatePanelUi() {
@@ -726,17 +870,21 @@ function updatePanelUi() {
     legendPanel,
     hoverPanel,
     separationPanel,
+    similarityPanel,
   };
 
   Object.entries(panelMap).forEach(([panelId, panel]) => {
     if (!panel) {
       return;
     }
-    panel.classList.toggle("is-collapsed", !openPanels.has(panelId));
+    const shouldShow = currentAppMode === "heatmap"
+      ? panelId === "similarityPanel"
+      : (panelId !== "similarityPanel" && openPanels.has(panelId));
+    panel.classList.toggle("is-collapsed", !shouldShow);
   });
 
   headerButtons.forEach((button) => {
-    const expanded = openPanels.has(button.dataset.panelTarget);
+    const expanded = currentAppMode === "heatmap" ? false : openPanels.has(button.dataset.panelTarget);
     button.setAttribute("aria-pressed", expanded ? "true" : "false");
   });
 }
@@ -784,6 +932,9 @@ function getLayerEntryPosition(layerEntry) {
 }
 
 function buildLatentLegendLabel(layer) {
+  if (dataset.projectionMethod === "umap") {
+    return "True latent / UMAP-3D";
+  }
   const bounds = dataset.latentBoundsByLayer[layer];
   if (!bounds) {
     return t("legendLatentFallback");
@@ -894,6 +1045,7 @@ function updateFocusLayerVisuals() {
   focusGuide.position.y = layerToY(selectedLayer);
   updateLayerSlices();
   updateActivityHotspots();
+  updateHeatmapScene();
   updateDesiredFocusTarget();
 }
 
@@ -995,22 +1147,16 @@ function onSeparationPanelClick(event) {
     return;
   }
 
-  selectedLayer = Number(row.dataset.layer);
-  if (layerVisibilityMode === "current") {
-    visibleLayerList = [selectedLayer];
-    visibleLayerSet = new Set(visibleLayerList);
-  } else if (layerVisibilityMode === "custom" && !customVisibleLayers.includes(selectedLayer)) {
-    customVisibleLayers = normalizeLayerList([...customVisibleLayers, selectedLayer]);
+  applySelectedLayer(row.dataset.layer);
+  clearHover();
+}
+
+function onSimilarityPanelInput(event) {
+  if (event.target.id !== "heatmapLayerSlider") {
+    return;
   }
-  syncVisibleLayers();
-  layerSlider.value = `${selectedLayer}`;
-  layerValue.textContent = `${selectedLayer}`;
-  wAxisReadout.textContent = `${t("layerWord")} ${selectedLayer}`;
-  updateWMarker(selectedLayer);
-  updateModeUi();
-  updateSceneGeometry();
-  updateFocusLayerVisuals();
-  renderSeparationPanel();
+
+  applySelectedLayer(event.target.value);
   clearHover();
 }
 
@@ -1059,6 +1205,7 @@ function setHoverPanelLegacy(payload) {
   }
 
   const category = CATEGORY_CONFIG[payload.category] ?? CATEGORY_CONFIG.language;
+  const coordsLabel = dataset.projectionMethod === "umap" ? t("umapPosition") : t("pcaPosition");
   const componentPills = payload.svd
     .map((component) => `<span class="component-pill">${component.name} ${formatSigned(component.value)}</span>`)
     .join("");
@@ -1079,7 +1226,7 @@ function setHoverPanelLegacy(payload) {
       <p><strong>Katman:</strong> ${payload.layer}</p>
       <p><strong>Pozisyon:</strong> ${payload.position}</p>
       <p><strong>Aktivasyon siddeti:</strong> ${payload.activation.toFixed(2)}</p>
-      <p><strong>PCA konumu:</strong> x=${payload.coords[0].toFixed(2)}, y=${payload.coords[1].toFixed(2)}, z=${payload.coords[2].toFixed(2)}</p>
+      <p><strong>${coordsLabel}:</strong> x=${payload.coords[0].toFixed(2)}, y=${payload.coords[1].toFixed(2)}, z=${payload.coords[2].toFixed(2)}</p>
       <p><strong>Prompt:</strong> ${escapeHtml(payload.promptText)}</p>
       <p><strong>Aktif SVD bilesenleri:</strong></p>
       <div class="component-list">${componentPills}</div>
@@ -1126,6 +1273,144 @@ function renderSeparationPanel() {
   `;
 }
 
+function renderSimilarityPanel() {
+  const similarityMeta = dataset.categorySimilarity;
+  const byLayer = similarityMeta?.byLayer ?? similarityMeta?.by_layer;
+  if (!byLayer) {
+    similarityPanel.innerHTML = `
+      <div class="hover-empty">
+        ${t("similarityUnavailable")}
+      </div>
+    `;
+    return;
+  }
+
+  const layerEntry = byLayer[String(selectedLayer)];
+  if (!layerEntry?.matrix?.length) {
+    similarityPanel.innerHTML = `
+      <div class="hover-empty">
+        ${t("similarityUnavailable")}
+      </div>
+    `;
+    return;
+  }
+
+  const categories = similarityMeta.categories ?? CATEGORY_ORDER;
+  const matrix = layerEntry.matrix;
+  const withinValues = categories
+    .map((_, index) => matrix[index]?.[index])
+    .filter((value) => typeof value === "number");
+  const betweenValues = matrix.flatMap((row, rowIndex) => (
+    row.flatMap((value, colIndex) => (rowIndex !== colIndex && typeof value === "number" ? [value] : []))
+  ));
+  const withinAverage = withinValues.length
+    ? withinValues.reduce((sum, value) => sum + value, 0) / withinValues.length
+    : null;
+  const betweenAverage = betweenValues.length
+    ? betweenValues.reduce((sum, value) => sum + value, 0) / betweenValues.length
+    : null;
+  const diagonalEntries = categories
+    .map((category, index) => ({ category, value: matrix[index]?.[index] }))
+    .filter((entry) => typeof entry.value === "number")
+    .sort((left, right) => right.value - left.value)
+    .map((entry) => `<span class="component-pill">${escapeHtml(categoryLabel(entry.category))} ${entry.value.toFixed(2)}</span>`)
+    .join("");
+  const heatmapSvg = buildSimilarityHeatmapSvg(categories, matrix);
+
+  similarityPanel.innerHTML = `
+    <div class="similarity-header">
+      <div>
+        <h3>${t("similarityTitle")}</h3>
+        <p>${t("similarityDescription")}</p>
+      </div>
+      <div class="score-badge">${t("similarityLayerBadge", { layer: selectedLayer })}</div>
+    </div>
+    <div class="heatmap-toolbar">
+      <label for="heatmapLayerSlider">${t("heatmapLayerLabel")}</label>
+      <input id="heatmapLayerSlider" type="range" min="${layerMin}" max="${layerMax}" step="1" value="${selectedLayer}">
+      <strong class="score-badge">L${selectedLayer}</strong>
+    </div>
+    <div class="similarity-legend">
+      <span>${t("similarityLow")}</span>
+      <div class="similarity-gradient"></div>
+      <span>${t("similarityHigh")}</span>
+    </div>
+    <div class="heatmap-stage">
+      ${heatmapSvg}
+    </div>
+    <div class="hover-grid">
+      <p><strong>${t("selectedLayer")}:</strong> L${selectedLayer}</p>
+      <p><strong>${t("positionWord")}:</strong> ${dataset.projectionMethod.toUpperCase()} latent layer</p>
+      <div class="component-list">${diagonalEntries || '<span class="component-pill">-</span>'}</div>
+    </div>
+    <div class="similarity-stats">
+      <div class="similarity-stat">
+        <span>${t("similarityWithin")}</span>
+        <strong>${withinAverage == null ? "-" : withinAverage.toFixed(3)}</strong>
+      </div>
+      <div class="similarity-stat">
+        <span>${t("similarityBetween")}</span>
+        <strong>${betweenAverage == null ? "-" : betweenAverage.toFixed(3)}</strong>
+      </div>
+    </div>
+  `;
+}
+
+function buildSimilarityHeatmapSvg(categories, matrix) {
+  const cellSize = 126;
+  const labelBand = 124;
+  const topBand = 108;
+  const outerPadding = 18;
+  const width = labelBand + (categories.length * cellSize) + outerPadding;
+  const height = topBand + (categories.length * cellSize) + outerPadding;
+
+  const labelMarkup = categories.map((category, index) => {
+    const x = labelBand + (index * cellSize) + (cellSize / 2);
+    const y = topBand + (index * cellSize) + (cellSize / 2);
+    return `
+      <text class="heatmap-svg-label heatmap-svg-label-top" x="${x}" y="54">${escapeHtml(categoryLabel(category))}</text>
+      <text class="heatmap-svg-label heatmap-svg-label-left" x="54" y="${y}">${escapeHtml(categoryLabel(category))}</text>
+    `;
+  }).join("");
+
+  const cellsMarkup = categories.map((rowCategory, rowIndex) => (
+    categories.map((columnCategory, columnIndex) => {
+      const value = matrix[rowIndex]?.[columnIndex];
+      const safeValue = typeof value === "number" ? value : null;
+      const x = labelBand + (columnIndex * cellSize) + 6;
+      const y = topBand + (rowIndex * cellSize) + 6;
+      const fill = safeValue == null ? "rgba(255,255,255,0.04)" : similarityToColor(safeValue);
+      const stroke = rowIndex === columnIndex ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.14)";
+      const valueText = safeValue == null ? "-" : safeValue.toFixed(3);
+      const relationText = rowIndex === columnIndex ? t("similarityWithinShort") : t("similarityCrossShort");
+      const textColor = safeValue != null && safeValue > 0.38 ? "#08131d" : "#eef3f7";
+      return `
+        <g class="heatmap-svg-cell-group" transform="translate(${x}, ${y})">
+          <rect class="heatmap-svg-cell" width="${cellSize - 12}" height="${cellSize - 12}" rx="24" ry="24" fill="${fill}" stroke="${stroke}" />
+          <text class="heatmap-svg-value" x="${(cellSize - 12) / 2}" y="${((cellSize - 12) / 2) - 6}" fill="${textColor}">${valueText}</text>
+          <text class="heatmap-svg-note" x="${(cellSize - 12) / 2}" y="${((cellSize - 12) / 2) + 22}" fill="${textColor}">${relationText}</text>
+        </g>
+      `;
+    }).join("")
+  )).join("");
+
+  return `
+    <svg class="heatmap-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(t("similarityTitle"))}">
+      <rect class="heatmap-svg-frame" x="1.5" y="1.5" width="${width - 3}" height="${height - 3}" rx="34" ry="34"></rect>
+      ${labelMarkup}
+      ${cellsMarkup}
+    </svg>
+  `;
+}
+
+function similarityToColor(value) {
+  const clamped = THREE.MathUtils.clamp((value + 1) / 2, 0, 1);
+  const hue = lerp(6, 138, clamped);
+  const saturation = lerp(62, 54, clamped);
+  const lightness = lerp(44, 58, clamped);
+  return `hsl(${hue.toFixed(1)} ${saturation.toFixed(1)}% ${lightness.toFixed(1)}%)`;
+}
+
 function setHoverPanel(payload) {
   if (!payload) {
     hoverPanel.innerHTML = `
@@ -1136,6 +1421,7 @@ function setHoverPanel(payload) {
     return;
   }
 
+  const coordsLabel = dataset.projectionMethod === "umap" ? t("umapPosition") : t("pcaPosition");
   const componentPills = payload.svd
     .map((component) => `<span class="component-pill">${component.name} ${formatSigned(component.value)}</span>`)
     .join("");
@@ -1156,7 +1442,7 @@ function setHoverPanel(payload) {
       <p><strong>${t("layerWord")}:</strong> ${payload.layer}</p>
       <p><strong>${t("positionWord")}:</strong> ${payload.position}</p>
       <p><strong>${t("activationStrength")}:</strong> ${payload.activation.toFixed(2)}</p>
-      <p><strong>${t("pcaPosition")}:</strong> x=${payload.coords[0].toFixed(2)}, y=${payload.coords[1].toFixed(2)}, z=${payload.coords[2].toFixed(2)}</p>
+      <p><strong>${coordsLabel}:</strong> x=${payload.coords[0].toFixed(2)}, y=${payload.coords[1].toFixed(2)}, z=${payload.coords[2].toFixed(2)}</p>
       <p><strong>${t("promptWord")}:</strong> ${escapeHtml(payload.promptText)}</p>
       <p><strong>${t("activeSvd")}:</strong></p>
       <div class="component-list">${componentPills}</div>
@@ -1606,6 +1892,17 @@ function updateLayerSlices() {
 }
 
 function updateDesiredFocusTarget() {
+  if (currentAppMode === "heatmap") {
+    const centroids = [...computeHeatmapCentroids(selectedLayer, CATEGORY_ORDER).values()];
+    const frame = computeHeatmapFrame(centroids);
+    desiredFocusTarget.set(frame.centerX, layerToY(selectedLayer), frame.centerZ);
+    desiredFocusDistance = THREE.MathUtils.clamp(Math.max(frame.width * 0.9, frame.depth * 1.35, 6.2), 5.6, 12.5);
+    if (cameraMode === "focus") {
+      focusAnimation = 1;
+    }
+    return;
+  }
+
   desiredFocusTarget.set(
     spaceFrameProfile.centerX,
     spaceFrameProfile.centerY,
@@ -1677,6 +1974,168 @@ function updateActivityHotspots() {
     mesh.scale.set(hotspot.width, hotspot.depth, 1);
     activityHotspotGroup.add(mesh);
   });
+}
+
+function updateHeatmapScene() {
+  while (heatmapSceneGroup.children.length) {
+    const [child] = heatmapSceneGroup.children;
+    child.traverse((node) => {
+      if (node.geometry) {
+        node.geometry.dispose();
+      }
+      if (node.material) {
+        if (Array.isArray(node.material)) {
+          node.material.forEach((material) => material.dispose());
+        } else {
+          node.material.dispose();
+        }
+      }
+    });
+    heatmapSceneGroup.remove(child);
+  }
+
+  if (currentAppMode !== "heatmap") {
+    return;
+  }
+
+  const similarityMeta = dataset.categorySimilarity;
+  const byLayer = similarityMeta?.byLayer ?? similarityMeta?.by_layer;
+  const layerEntry = byLayer?.[String(selectedLayer)];
+  if (!layerEntry?.matrix?.length) {
+    return;
+  }
+
+  const categories = similarityMeta.categories ?? CATEGORY_ORDER;
+  const centroids = computeHeatmapCentroids(selectedLayer, categories);
+  const diagonalValues = categories
+    .map((category, index) => ({ category, value: layerEntry.matrix[index]?.[index] }))
+    .filter((entry) => centroids.has(entry.category) && typeof entry.value === "number");
+  const diagonalMin = diagonalValues.length ? Math.min(...diagonalValues.map((entry) => entry.value)) : 0;
+  const diagonalMax = diagonalValues.length ? Math.max(...diagonalValues.map((entry) => entry.value)) : 1;
+
+  const planeFrame = computeHeatmapFrame([...centroids.values()]);
+  const plane = createLayerSlice({ layer: selectedLayer, selected: true });
+  plane.group.position.set(planeFrame.centerX, layerToY(selectedLayer), planeFrame.centerZ);
+  plane.group.scale.set(planeFrame.width, 1, planeFrame.depth);
+  heatmapSceneGroup.add(plane.group);
+
+  for (let rowIndex = 0; rowIndex < categories.length; rowIndex += 1) {
+    const leftCategory = categories[rowIndex];
+    const leftCentroid = centroids.get(leftCategory);
+    if (!leftCentroid) {
+      continue;
+    }
+
+    for (let colIndex = rowIndex + 1; colIndex < categories.length; colIndex += 1) {
+      const rightCategory = categories[colIndex];
+      const rightCentroid = centroids.get(rightCategory);
+      const similarity = layerEntry.matrix[rowIndex]?.[colIndex];
+      if (!rightCentroid || typeof similarity !== "number") {
+        continue;
+      }
+
+      const edgeColor = similarityToColor(similarity);
+      const start = new THREE.Vector3(leftCentroid.x, layerToY(selectedLayer) + 0.03, leftCentroid.z);
+      const end = new THREE.Vector3(rightCentroid.x, layerToY(selectedLayer) + 0.03, rightCentroid.z);
+      const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
+      const material = new THREE.LineBasicMaterial({
+        color: new THREE.Color(edgeColor),
+        transparent: true,
+        opacity: THREE.MathUtils.clamp(0.2 + ((similarity + 1) / 2) * 0.65, 0.2, 0.85),
+      });
+      heatmapSceneGroup.add(new THREE.Line(geometry, material));
+
+      const midpoint = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+      midpoint.y += 0.12;
+      heatmapSceneGroup.add(
+        createTextSprite(similarity.toFixed(2), edgeColor, midpoint, 0.64),
+      );
+    }
+  }
+
+  diagonalValues.forEach(({ category, value }) => {
+    const centroid = centroids.get(category);
+    const normalized = normalizeScalar(value, diagonalMin, diagonalMax);
+    const radius = lerp(0.58, 1.18, normalized);
+    const glow = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({
+        map: createGlowTexture(),
+        color: CATEGORY_CONFIG[category].color,
+        transparent: true,
+        opacity: 0.32 + normalized * 0.28,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    glow.rotation.x = -Math.PI / 2;
+    glow.position.set(centroid.x, layerToY(selectedLayer) + 0.02, centroid.z);
+    glow.scale.set(radius * 2.4, radius * 2.4, 1);
+    heatmapSceneGroup.add(glow);
+
+    const core = new THREE.Mesh(
+      new THREE.SphereGeometry(lerp(0.16, 0.28, normalized), 24, 24),
+      new THREE.MeshBasicMaterial({
+        color: CATEGORY_CONFIG[category].color,
+        transparent: true,
+        opacity: 0.96,
+      }),
+    );
+    core.position.set(centroid.x, layerToY(selectedLayer) + 0.16, centroid.z);
+    heatmapSceneGroup.add(core);
+
+    heatmapSceneGroup.add(
+      createTextSprite(
+        `${categoryLabel(category)} ${value.toFixed(2)}`,
+        CATEGORY_CONFIG[category].color,
+        new THREE.Vector3(centroid.x, layerToY(selectedLayer) + 0.72, centroid.z),
+        0.82,
+      ),
+    );
+  });
+}
+
+function computeHeatmapCentroids(layer, categories) {
+  const centroids = new Map();
+
+  categories.forEach((category) => {
+    const points = dataset.pointInstances.filter((point) => (
+      point.layer === layer &&
+      point.category === category &&
+      activeCategories.has(point.category)
+    ));
+    if (!points.length) {
+      return;
+    }
+
+    const bounds = dataset.latentBoundsByLayer[layer];
+    const positions = points.map((point) => projectMetricPosition(point.metricPosition, layer, bounds));
+    const centerX = positions.reduce((sum, position) => sum + position[0], 0) / positions.length;
+    const centerZ = positions.reduce((sum, position) => sum + position[2], 0) / positions.length;
+    centroids.set(category, { x: centerX, z: centerZ });
+  });
+
+  return centroids;
+}
+
+function computeHeatmapFrame(centroids) {
+  if (!centroids.length) {
+    return {
+      centerX: VIEW_TARGET.x,
+      centerZ: 0,
+      width: 6.2,
+      depth: 4.6,
+    };
+  }
+
+  const xs = centroids.map((centroid) => centroid.x);
+  const zs = centroids.map((centroid) => centroid.z);
+  return {
+    centerX: (Math.min(...xs) + Math.max(...xs)) / 2,
+    centerZ: (Math.min(...zs) + Math.max(...zs)) / 2,
+    width: Math.max(4.4, Math.max(...xs) - Math.min(...xs) + 2.8),
+    depth: Math.max(3.6, Math.max(...zs) - Math.min(...zs) + 2.4),
+  };
 }
 
 function computeLayerActivityHotspots(pointInstances, layer, enabledCategories) {
@@ -1949,20 +2408,32 @@ function layerToY(layer) {
 }
 
 async function loadDataset() {
+  const requestedSource = currentProjectionSource;
+  const candidates = requestedSource === "umap"
+    ? [DATASET_FILE_BY_PROJECTION.umap, DATASET_FILE_BY_PROJECTION.pca]
+    : [DATASET_FILE_BY_PROJECTION.pca];
+
   try {
-    const response = await fetch("./hidden_states.json", { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error(`hidden_states.json ${response.status}`);
-    }
+    for (const path of candidates) {
+      const response = await fetch(path, { cache: "no-store" });
+      if (!response.ok) {
+        continue;
+      }
 
-    const exported = await response.json();
-    if (exported.format !== "embedding_visualizer_export_v1") {
-      throw new Error("Unsupported hidden state export format");
-    }
+      const exported = await response.json();
+      if (exported.format !== "embedding_visualizer_export_v1") {
+        throw new Error("Unsupported hidden state export format");
+      }
 
-    return buildDatasetFromExport(exported);
+      const projectionMethod = exported.metadata?.projection_method ?? "pca";
+      currentProjectionSource = projectionMethod === "umap" ? "umap" : "pca";
+      localStorage.setItem("llm-space-projection-source", currentProjectionSource);
+      return buildDatasetFromExport(exported);
+    }
+    throw new Error(`No export file could be loaded for projection source '${requestedSource}'`);
   } catch (error) {
     console.warn("Falling back to mock dataset:", error);
+    currentProjectionSource = "pca";
     const rng = createRng(20260411);
     return buildMockDataset(rng);
   }
@@ -2023,7 +2494,22 @@ function buildDatasetFromExport(exported) {
     layerMin: denseLayerMin,
     layerMax: denseLayerMax,
     varianceText: exported.metadata.variance_text,
-    sourceLabel: exported.metadata.model_name ? `Gercek veri: ${exported.metadata.model_name}` : "Gercek veri",
+    categorySimilarity: normalizeCategorySimilarityMetadata(exported.metadata.category_similarity ?? null),
+    projectionMethod: exported.metadata?.projection_method ?? "pca",
+    sourceLabel: exported.metadata.model_name
+      ? `Gercek veri: ${exported.metadata.model_name} / ${(exported.metadata?.projection_method ?? "pca").toUpperCase()}`
+      : `Gercek veri / ${(exported.metadata?.projection_method ?? "pca").toUpperCase()}`,
+  };
+}
+
+function normalizeCategorySimilarityMetadata(metadata) {
+  if (!metadata) {
+    return null;
+  }
+
+  return {
+    ...metadata,
+    byLayer: metadata.byLayer ?? metadata.by_layer ?? {},
   };
 }
 
@@ -2159,6 +2645,7 @@ function buildMockDataset(random) {
     layerMin: DEFAULT_LAYER_MIN,
     layerMax: DEFAULT_LAYER_MAX,
     varianceText: `${(pca.varianceRatio[0] * 100).toFixed(1)}% / ${(pca.varianceRatio[1] * 100).toFixed(1)}% / ${(pca.varianceRatio[2] * 100).toFixed(1)}%`,
+    categorySimilarity: null,
     sourceLabel: "Sahte veri",
   };
 }

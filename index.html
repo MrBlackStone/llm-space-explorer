@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20260412-panel-toggle">
+  <link rel="stylesheet" href="./styles.css?v=20260417-heatmap-2d-svg">
   <script type="importmap">
     {
       "imports": {
@@ -29,6 +29,11 @@
         <div class="lang-toggle" role="group" aria-label="Language">
           <button id="langTrButton" class="header-button is-small" data-lang="tr" type="button" aria-pressed="true">TR</button>
           <button id="langEnButton" class="header-button is-small" data-lang="en" type="button" aria-pressed="false">EN</button>
+        </div>
+        <div class="projection-toggle" role="group" aria-label="Projection source">
+          <button id="projectionPcaButton" class="header-button is-small" data-projection-source="pca" type="button" aria-pressed="true">PCA</button>
+          <button id="projectionUmapButton" class="header-button is-small" data-projection-source="umap" type="button" aria-pressed="false">UMAP</button>
+          <button id="projectionHeatmapButton" class="header-button is-small" data-main-view="heatmap" type="button" aria-pressed="false">Heatmap</button>
         </div>
         <div class="header-toggle-row" role="toolbar" aria-label="Panel toggles">
           <button id="panelAboutButton" class="header-button" data-panel-target="heroPanel" type="button" aria-pressed="false">About</button>
@@ -194,9 +199,15 @@
       </div>
     </section>
 
+    <section id="similarityPanel" class="panel similarity-panel panel-drawer is-collapsed">
+      <div id="similarityEmpty" class="hover-empty">
+        Katman bazli kategori benzerlik isi haritasi burada gorunecek.
+      </div>
+    </section>
+
     <div id="tooltip" class="tooltip hidden"></div>
   </div>
 
-  <script type="module" src="./app.js?v=20260412-panel-toggle"></script>
+  <script type="module" src="./app.js?v=20260417-heatmap-2d-svg"></script>
 </body>
 </html>

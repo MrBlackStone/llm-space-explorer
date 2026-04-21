@@ -136,6 +136,16 @@ body::before {
   gap: 8px;
 }
 
+.projection-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.app-mode-toggle {
+  display: flex;
+  gap: 8px;
+}
+
 .panel-drawer {
   transition: opacity 180ms ease, transform 220ms ease, visibility 180ms ease;
 }
@@ -461,6 +471,37 @@ input[type="range"]::-moz-range-thumb {
   overflow: auto;
 }
 
+.similarity-panel {
+  top: 94px;
+  left: 50%;
+  bottom: auto;
+  transform: translateX(-50%);
+  width: min(860px, calc(100vw - 72px));
+  min-height: 500px;
+  max-height: calc(100vh - 126px);
+  padding: 24px 26px 26px;
+  overflow: auto;
+  z-index: 5;
+  background:
+    linear-gradient(180deg, rgba(9, 17, 24, 0.9), rgba(10, 18, 26, 0.86)),
+    radial-gradient(circle at top left, rgba(77, 156, 255, 0.1), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(255, 154, 60, 0.08), transparent 30%);
+}
+
+body.app-mode-heatmap #scene {
+  opacity: 0.05;
+  filter: none;
+  pointer-events: none;
+  transition: opacity 180ms ease, filter 180ms ease;
+}
+
+body.app-mode-space #scene {
+  opacity: 1;
+  filter: none;
+  pointer-events: auto;
+  transition: opacity 180ms ease, filter 180ms ease;
+}
+
 .hover-empty {
   color: var(--muted);
   line-height: 1.6;
@@ -616,6 +657,193 @@ input[type="range"]::-moz-range-thumb {
   color: var(--muted);
 }
 
+.similarity-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.similarity-header h3,
+.similarity-header p {
+  margin: 0;
+}
+
+.similarity-header p {
+  color: var(--muted);
+  line-height: 1.5;
+  margin-top: 6px;
+  max-width: 54ch;
+}
+
+.heatmap-toolbar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.heatmap-toolbar label {
+  font-weight: 600;
+}
+
+.heatmap-toolbar input[type="range"] {
+  margin: 0;
+}
+
+.similarity-legend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.similarity-gradient {
+  flex: 1;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #d43f2f 0%, #e1a948 50%, #46bb62 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.heatmap-stage {
+  margin-bottom: 20px;
+  padding: 16px;
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.02)),
+    radial-gradient(circle at top left, rgba(77, 156, 255, 0.1), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(255, 154, 60, 0.08), transparent 24%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.heatmap-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.heatmap-svg-frame {
+  fill: rgba(255, 255, 255, 0.025);
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1.5;
+}
+
+.heatmap-svg-label {
+  fill: var(--text);
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.heatmap-svg-label-left {
+  font-size: 17px;
+}
+
+.heatmap-svg-cell {
+  stroke-width: 1.4;
+}
+
+.heatmap-svg-value,
+.heatmap-svg-note {
+  font-family: "IBM Plex Mono", monospace;
+  text-anchor: middle;
+}
+
+.heatmap-svg-value {
+  font-size: 23px;
+  font-weight: 500;
+}
+
+.heatmap-svg-note {
+  font-size: 12px;
+  opacity: 0.74;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: 110px repeat(4, minmax(120px, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+
+.heatmap-axis-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 62px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: center;
+  padding: 10px 12px;
+}
+
+.heatmap-axis-label.is-corner {
+  background: transparent;
+  border-style: dashed;
+}
+
+.heatmap-cell {
+  min-height: 108px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 10px;
+  text-align: center;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.heatmap-cell strong {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 1.08rem;
+}
+
+.heatmap-cell span {
+  font-size: 0.82rem;
+  opacity: 0.86;
+}
+
+.similarity-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.similarity-stat {
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.similarity-stat span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.84rem;
+  margin-bottom: 6px;
+}
+
+.similarity-stat strong {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 1.02rem;
+}
+
 .tooltip {
   position: absolute;
   min-width: 120px;
@@ -659,6 +887,25 @@ input[type="range"]::-moz-range-thumb {
   transform: translateX(12px);
 }
 
+.similarity-panel.is-collapsed {
+  transform: translate(-50%, -16px);
+}
+
+body.app-mode-space .similarity-panel {
+  display: none;
+}
+
+body.app-mode-heatmap .hero-panel,
+body.app-mode-heatmap .legend-panel,
+body.app-mode-heatmap .hover-panel,
+body.app-mode-heatmap .separation-panel {
+  display: none;
+}
+
+body.app-mode-heatmap .similarity-panel {
+  display: block;
+}
+
 @media (max-width: 900px) {
   .app-header {
     top: 12px;
@@ -700,10 +947,72 @@ input[type="range"]::-moz-range-thumb {
   }
 
   .legend-panel,
+  .similarity-panel,
   .separation-panel,
   .hover-panel,
   .controls-panel {
     left: 12px;
     right: 12px;
+  }
+
+  .similarity-panel {
+    top: 120px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    min-height: 420px;
+    max-height: calc(100vh - 144px);
+    transform: none;
+    padding: 18px;
+  }
+
+  .similarity-panel.is-collapsed {
+    transform: translateY(-12px);
+  }
+
+  .heatmap-grid {
+    grid-template-columns: 84px repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .heatmap-stage {
+    padding: 12px;
+    border-radius: 22px;
+  }
+
+  .heatmap-svg-label {
+    font-size: 15px;
+  }
+
+  .heatmap-svg-label-left {
+    font-size: 14px;
+  }
+
+  .heatmap-svg-value {
+    font-size: 18px;
+  }
+
+  .heatmap-svg-note {
+    font-size: 10px;
+  }
+
+  .heatmap-axis-label {
+    min-height: 52px;
+    font-size: 0.82rem;
+    padding: 8px;
+  }
+
+  .heatmap-cell {
+    min-height: 82px;
+    border-radius: 16px;
+    padding: 10px 8px;
+  }
+
+  .heatmap-cell strong {
+    font-size: 0.92rem;
+  }
+
+  .heatmap-cell span {
+    font-size: 0.72rem;
   }
 }
